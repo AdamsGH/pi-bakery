@@ -92,6 +92,10 @@ The `/parrot` command opens the last AI response in your external editor — sav
 
 When Pi needs your input, it asks with an interactive picker instead of making you type a free-form reply. A single question shows a quick picker; multiple questions show tabs with a Submit tab to review everything before sending.
 
+## [`@normful/pi-auto-suggest-skill`](./packages/pi-auto-suggest-skill)
+
+Removes Pi's inlined skill list and asks a classifier model which skill the turn needs, then suggests at most one. `/auto-suggest-skill:status` reports what it decided and what it cost.
+
 ## Development
 
 See [`AGENTS.md`](./AGENTS.md) for the workspace layout and commands, and [`CONTRIBUTING.md`](./CONTRIBUTING.md) for contribution expectations.
