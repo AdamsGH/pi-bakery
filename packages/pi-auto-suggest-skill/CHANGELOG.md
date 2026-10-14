@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   being ignored, while `hi` and `thanks` still cost nothing.
 - Once a round has removed Pi's roster it stays removed for the rest of the session, instead of a
   later turn that skips putting it back.
+- `/auto-suggest-skill:status` opens a styled panel in the TUI — the outcome rates, the unpriced-cost
+  caveat and the last round's result each carry their own color — instead of a notification that
+  rendered every line in the same dim color. Every other mode still gets the plain notification.
+- The report's value column starts at the same offset on every row; the last round's figures were a
+  column to the left of the rest.
 
 ### Fixed
 

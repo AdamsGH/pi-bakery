@@ -22,7 +22,16 @@
  * removed; the model preference, the config file, the statistics and the status command are new.
  */
 import type { ClassifierApi, ClassifierModel, ClassifierResult } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext, Skill } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+  ExtensionContext,
+  Skill,
+  Theme,
+  ThemeColor,
+} from "@earendil-works/pi-coding-agent";
+import { Container, matchesKey, Text } from "@earendil-works/pi-tui";
 import { loadConfig, type AutoSuggestConfig } from "./config.js";
 import { skillsInContext } from "./history.js";
 import { isResolvedModel, resolveModel } from "./model.js";
@@ -46,10 +55,14 @@ import {
   outcomeFor,
   readLifetime,
   renderStatus,
+  renderStatusStyled,
   writeLifetime,
   type LifetimeState,
+  type Painter,
   type PendingLifetime,
   type RoundRecord,
+  type StatusColor,
+  type StatusInput,
   type Tally,
 } from "./stats.js";
 import type { DecisionClient, RosterSkill, SkipReason, Suggestion } from "./types.js";
@@ -386,21 +399,75 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("auto-suggest-skill:status", {
     description: "Show auto-suggest-skill decision statistics and the most recent round",
     handler: async (_args, ctx) => {
-      const current = ensureState(ctx);
-      const text = renderStatus({
-        session: current.session,
-        lifetime: current.lifetime,
-        last: current.last,
-        lastModel: current.lastModel,
-        lastRosterSize: current.lastRosterSize,
-        modelError: current.modelError,
-        lastSkip: current.lastSkip,
-        configSources: current.configSources,
-        configError: current.configError,
-      });
-      ctx.ui.notify(text, "info");
+      const input = statusInput(ensureState(ctx));
+      // A custom component needs a real terminal; every other mode renders the plain report.
+      if (ctx.mode === "tui") {
+        await showStatusReport(ctx, input);
+        return;
+      }
+      ctx.ui.notify(renderStatus(input), "info");
     },
   });
+}
+
+/** Theme tokens for the report's semantic colors. */
+const STATUS_COLOR: Record<StatusColor, ThemeColor> = {
+  title: "accent",
+  label: "muted",
+  value: "text",
+  quiet: "dim",
+  good: "success",
+  bad: "error",
+  warn: "warning",
+};
+
+/** The colorizer the report's styled rendering takes. */
+function statusPainter(theme: Theme): Painter {
+  return (color, text) => {
+    const styled = theme.fg(STATUS_COLOR[color], text);
+    return color === "title" ? theme.bold(styled) : styled;
+  };
+}
+
+/**
+ * The report as a focused panel.
+ *
+ * `notify()` renders its whole message in one dim color, which flattens a table whose point is that a
+ * failed round, an idle session and a healthy one read differently at a glance. A custom component
+ * owns its styling, and a report this long wants a panel rather than a line of transcript.
+ */
+async function showStatusReport(ctx: ExtensionCommandContext, input: StatusInput): Promise<void> {
+  await ctx.ui.custom((_tui, theme, _keybindings, done) => {
+    const border = new DynamicBorder((text: string) => theme.fg("border", text));
+    const report = renderStatusStyled(input, statusPainter(theme)).join("\n");
+    const container = new Container();
+    container.addChild(border);
+    container.addChild(new Text(report, 1, 1));
+    container.addChild(new Text(theme.fg("dim", "Enter or Esc to close"), 1, 0));
+    container.addChild(border);
+    return {
+      render: (width: number) => container.render(width),
+      invalidate: () => container.invalidate(),
+      handleInput: (data: string) => {
+        if (matchesKey(data, "enter") || matchesKey(data, "escape")) done(undefined);
+      },
+    };
+  });
+}
+
+/** The report input, assembled from the session state. */
+function statusInput(current: SessionState): StatusInput {
+  return {
+    session: current.session,
+    lifetime: current.lifetime,
+    last: current.last,
+    lastModel: current.lastModel,
+    lastRosterSize: current.lastRosterSize,
+    modelError: current.modelError,
+    lastSkip: current.lastSkip,
+    configSources: current.configSources,
+    configError: current.configError,
+  };
 }
 
 function messageFor(suggestion: Suggestion) {

@@ -272,6 +272,55 @@ export interface StatusInput {
   configError: string | null;
 }
 
+/**
+ * The semantic colors the report uses. The caller maps these onto theme tokens, so this module needs
+ * no theme import and `renderStatus` stays a pure string function.
+ */
+export type StatusColor = "title" | "label" | "value" | "quiet" | "good" | "bad" | "warn";
+
+/** Colorizes one span of the report. */
+export type Painter = (color: StatusColor, text: string) => string;
+
+/** The painter that produces the plain text `renderStatus` returns. */
+export const PLAIN: Painter = (_color, text) => text;
+
+/** The label column, then one separator space, so every value starts in the same column. */
+const LABEL_WIDTH = 11;
+/** Width of the session column, so the lifetime column starts at a fixed offset. */
+const SESSION_WIDTH = 22;
+
+/** One field of the report: its text, and the color it renders in. */
+interface Cell {
+  text: string;
+  color: StatusColor;
+}
+
+function cell(text: string, color: StatusColor = "value"): Cell {
+  return { text, color };
+}
+
+/** A row with one value column: a label, then the value as one or more colored spans. */
+function detail(paint: Painter, label: string, parts: readonly Cell[]): string {
+  const value = parts.map((part) => paint(part.color, part.text)).join("");
+  return `  ${paint("label", label.padEnd(LABEL_WIDTH))} ${value}`;
+}
+
+/**
+ * A row of the session/lifetime table. The session column is padded before any color is applied,
+ * because an escape sequence applied first would count as a column and shear the table.
+ */
+function row(
+  paint: Painter,
+  label: string,
+  session: readonly Cell[],
+  lifetime: readonly Cell[],
+): string {
+  const used = session.reduce((width, part) => width + part.text.length, 0);
+  const gap = Math.max(0, SESSION_WIDTH - used);
+  const padding = gap > 0 ? [cell(" ".repeat(gap), "quiet")] : [];
+  return detail(paint, label, [...session, ...padding, ...lifetime]);
+}
+
 function tokens(value: number): string {
   if (value < 1000) return String(value);
   return `${(value / 1000).toFixed(1)}k`;
@@ -280,17 +329,23 @@ function tokens(value: number): string {
 /**
  * Cost is shown only when the model has a catalog price. Six of the twenty-six shipped classifier
  * models have none — including `typesafe/jev-latest`, the first default preference — and Pi reports
- * those as $0 however many tokens they consume, so a dollar figure would be a lie.
+ * those as $0 however many tokens they consume, so a dollar figure would be a lie. The `cost n/a`
+ * clause is a warning rather than a value, because the figure beside it is not what it looks like.
  */
-function spend(tally: Tally): string {
-  if (tally.rounds === 0) return "0";
-  if (tally.anyUnpriced) return `${tokens(tally.inputTokens)} · cost n/a`;
-  return `${tokens(tally.inputTokens)} · $${tally.costUsd.toFixed(4)}`;
+function spend(tally: Tally): Cell[] {
+  if (tally.rounds === 0) return [cell("0")];
+  if (tally.anyUnpriced) return [cell(tokens(tally.inputTokens)), cell(" · cost n/a", "warn")];
+  return [cell(`${tokens(tally.inputTokens)} · $${tally.costUsd.toFixed(4)}`)];
 }
 
 function rate(part: number, whole: number): string {
   if (whole === 0) return "0";
   return `${Math.round((part / whole) * 100)}% (${part}/${whole})`;
+}
+
+/** A rate that is only worth noticing when it is not zero. */
+function outcomeRate(part: number, whole: number, color: StatusColor): Cell {
+  return cell(rate(part, whole), part > 0 ? color : "quiet");
 }
 
 function clock(at: number): string {
@@ -308,92 +363,141 @@ function truncate(text: string, limit: number): string {
   return oneLine.length <= limit ? oneLine : `${oneLine.slice(0, limit - 1)}…`;
 }
 
-function row(label: string, sessionValue: string, lifetimeValue: string): string {
-  return `  ${label.padEnd(11)} ${sessionValue.padEnd(22)}${lifetimeValue}`;
-}
-
 /**
  * The status report: session and lifetime side by side, then the most recent round in full.
  * Session figures come from memory; lifetime figures come from the counter file.
+ *
+ * One layout, painted by the caller. `renderStatus` and the TUI panel are the same lines, so the two
+ * renderings cannot drift apart.
  */
-export function renderStatus(input: StatusInput): string {
-  const { session, lifetime, last } = input;
-  const lines: string[] = [];
+function statusLines(input: StatusInput, paint: Painter): string[] {
+  return [...tableLines(input, paint), "", ...roundLines(input, paint)];
+}
 
-  lines.push(`auto-suggest-skill   ${session.rounds} session / ${lifetime.rounds} lifetime`);
-
-  if (input.modelError) lines.push(`  model       ${input.modelError}`);
-  if (input.configError) lines.push(`  config      ${input.configError}`);
-  if (input.configSources.length > 0) {
-    for (const source of input.configSources) lines.push(`  config      ${source}`);
-  }
-
-  lines.push("");
-  lines.push(row("metric", "session", "lifetime"));
-  lines.push(row("rounds", String(session.rounds), String(lifetime.rounds)));
-  lines.push(row("api calls", String(session.apiCalls), String(lifetime.apiCalls)));
-  lines.push(
+/** The title, any config or model error, and the session/lifetime table. */
+function tableLines(input: StatusInput, paint: Painter): string[] {
+  const { session, lifetime } = input;
+  return [
+    titleLine(input, paint),
+    ...problemLines(input, paint),
+    "",
+    row(paint, "metric", [cell("session", "quiet")], [cell("lifetime", "quiet")]),
+    row(paint, "rounds", [cell(String(session.rounds))], [cell(String(lifetime.rounds))]),
+    row(paint, "api calls", [cell(String(session.apiCalls))], [cell(String(lifetime.apiCalls))]),
     row(
+      paint,
       "suggested",
-      rate(session.suggested, session.rounds),
-      rate(lifetime.suggested, lifetime.rounds),
+      [outcomeRate(session.suggested, session.rounds, "good")],
+      [outcomeRate(lifetime.suggested, lifetime.rounds, "good")],
     ),
-  );
-  lines.push(row("none", rate(session.none, session.rounds), rate(lifetime.none, lifetime.rounds)));
-  lines.push(
-    row("failed", rate(session.failed, session.rounds), rate(lifetime.failed, lifetime.rounds)),
-  );
-  lines.push(row("skipped", String(session.skipped), String(lifetime.skipped)));
-  lines.push(row("tokens", spend(session), spend(lifetime)));
-  lines.push(
     row(
-      "latency",
-      `p50 ${percentile(session.latencies, 0.5)}ms`,
-      `p50 ${percentile(lifetime.latencies, 0.5)}ms`,
+      paint,
+      "none",
+      [cell(rate(session.none, session.rounds))],
+      [cell(rate(lifetime.none, lifetime.rounds))],
     ),
-  );
-  if (lifetime.sessionIds.length > 0) {
-    const plural = lifetime.sessionIds.length === 1 ? "" : "s";
-    lines.push(
-      row(
-        "since",
-        "",
-        `${day(lifetime.firstSeenAt)} (${lifetime.sessionIds.length} session${plural})`,
-      ),
-    );
-  }
+    row(
+      paint,
+      "failed",
+      [outcomeRate(session.failed, session.rounds, "bad")],
+      [outcomeRate(lifetime.failed, lifetime.rounds, "bad")],
+    ),
+    row(paint, "skipped", [cell(String(session.skipped))], [cell(String(lifetime.skipped))]),
+    row(paint, "tokens", spend(session), spend(lifetime)),
+    row(
+      paint,
+      "latency",
+      [cell(`p50 ${percentile(session.latencies, 0.5)}ms`)],
+      [cell(`p50 ${percentile(lifetime.latencies, 0.5)}ms`)],
+    ),
+    ...sinceLines(input, paint),
+  ];
+}
 
-  lines.push("");
+/** The heading: what this is, and how many rounds the session and the machine have seen. */
+function titleLine(input: StatusInput, paint: Painter): string {
+  return (
+    `${paint("title", "auto-suggest-skill")}   ` +
+    `${paint("value", String(input.session.rounds))}${paint("quiet", " session / ")}` +
+    `${paint("value", String(input.lifetime.rounds))}${paint("quiet", " lifetime")}`
+  );
+}
+
+/** A model that would not resolve, a config that would not load, and where the config came from. */
+function problemLines(input: StatusInput, paint: Painter): string[] {
+  const lines: string[] = [];
+  if (input.modelError) lines.push(detail(paint, "model", [cell(input.modelError, "bad")]));
+  if (input.configError) lines.push(detail(paint, "config", [cell(input.configError, "bad")]));
+  for (const source of input.configSources) {
+    lines.push(detail(paint, "config", [cell(source, "quiet")]));
+  }
+  return lines;
+}
+
+/** How far back the lifetime tally reaches, when it has seen at least one session. */
+function sinceLines(input: StatusInput, paint: Painter): string[] {
+  const { sessionIds, firstSeenAt } = input.lifetime;
+  if (sessionIds.length === 0) return [];
+  const plural = sessionIds.length === 1 ? "" : "s";
+  const seen = `${day(firstSeenAt)} (${sessionIds.length} session${plural})`;
+  return [row(paint, "since", [], [cell(seen, "quiet")])];
+}
+
+/** The most recent round in full: which model decided, on what evidence, and how it went. */
+function roundLines(input: StatusInput, paint: Painter): string[] {
+  const { last } = input;
   if (!last) {
-    lines.push("  last round (none yet this session)");
-    if (input.lastSkip) lines.push(`  skipped    ${input.lastSkip}`);
-    return lines.join("\n");
+    const lines = [detail(paint, "last round", [cell("(none yet this session)", "quiet")])];
+    if (input.lastSkip) lines.push(detail(paint, "skipped", [cell(input.lastSkip, "quiet")]));
+    return lines;
   }
 
-  const roster = input.lastRosterSize === null ? "" : ` of ${input.lastRosterSize}`;
-  lines.push(
-    `  last round ${clock(last.at)} · ${input.lastModel ?? "unknown model"} · ${last.apiCalls} call${
-      last.apiCalls === 1 ? "" : "s"
-    }${roster === "" ? "" : ` · roster${roster}`}`,
-  );
-  if (last.gate !== undefined) lines.push(`  gate       ${last.gate.toFixed(2)}`);
+  const lines = [
+    detail(paint, "last round", [
+      cell(clock(last.at)),
+      cell(" · ", "quiet"),
+      cell(input.lastModel ?? "unknown model", "title"),
+      cell(` · ${last.apiCalls} call${last.apiCalls === 1 ? "" : "s"}`, "quiet"),
+      ...(input.lastRosterSize === null
+        ? []
+        : [cell(` · roster of ${input.lastRosterSize}`, "quiet")]),
+    ]),
+  ];
+  if (last.gate !== undefined) lines.push(detail(paint, "gate", [cell(last.gate.toFixed(2))]));
   if (last.shortlist && last.shortlist.length > 0) {
-    lines.push(`  shortlist  [${last.shortlist.join(", ")}]`);
+    lines.push(detail(paint, "shortlist", [cell(`[${last.shortlist.join(", ")}]`, "quiet")]));
   }
+  lines.push(detail(paint, "result", resultCells(last)));
+  return lines;
+}
+
+/** What the round concluded: a suggestion is good, a failure is bad, and no suggestion is neither. */
+function resultCells(last: RoundRecord): Cell[] {
+  const latency = cell(` · ${last.latencyMs}ms`, "quiet");
   if (last.outcome === "suggested") {
     const fits = last.winnerFits === undefined ? "" : ` ${last.winnerFits.toFixed(2)}`;
-    lines.push(`  result     suggested ${last.winner ?? "?"}${fits} · ${last.latencyMs}ms`);
-  } else if (last.outcome === "none") {
-    lines.push(
-      `  result     no suggestion · ${last.reason ?? "no reason recorded"} · ${last.latencyMs}ms`,
-    );
-  } else {
-    lines.push(
-      `  result     failed ${last.errorCode ?? "error"} · ${truncate(last.reason ?? "", 60)} · ${last.latencyMs}ms`,
-    );
+    return [cell(`suggested ${last.winner ?? "?"}${fits}`, "good"), latency];
   }
+  if (last.outcome === "none") {
+    return [cell(`no suggestion · ${last.reason ?? "no reason recorded"}`, "quiet"), latency];
+  }
+  const reason = truncate(last.reason ?? "", 60);
+  return [cell(`failed ${last.errorCode ?? "error"} · ${reason}`, "bad"), latency];
+}
 
-  return lines.join("\n");
+/**
+ * The report as plain text, for `notify()` and for any mode that cannot style a component.
+ */
+export function renderStatus(input: StatusInput): string {
+  return statusLines(input, PLAIN).join("\n");
+}
+
+/**
+ * The report as one styled line per entry, for a component that owns its own rendering. The painter
+ * maps the report's semantic colors onto the active theme's tokens.
+ */
+export function renderStatusStyled(input: StatusInput, paint: Painter): string[] {
+  return statusLines(input, paint);
 }
 
 /** The outcome label for a finished round. */

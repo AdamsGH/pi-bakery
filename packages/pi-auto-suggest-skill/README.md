@@ -24,9 +24,9 @@ Needs a credential for at least one classifier provider: `TYPESAFE_API_KEY`, `OP
 
 ## Commands
 
-| Command                      | Description                                                            |
-| ---------------------------- | ---------------------------------------------------------------------- |
-| `/auto-suggest-skill:status` | Decision statistics for this session and all time, plus the last round |
+| Command                      | Description                                                                        |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| `/auto-suggest-skill:status` | Decision statistics for this session and all time, plus the last round, in a panel |
 
 ## Configuration
 

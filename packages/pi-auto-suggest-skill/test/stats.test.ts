@@ -14,10 +14,13 @@ import {
   mergeLifetime,
   outcomeFor,
   percentile,
+  PLAIN,
   readLifetime,
   renderStatus,
+  renderStatusStyled,
   writeLifetime,
   type LifetimeState,
+  type Painter,
   type PendingLifetime,
   type RoundRecord,
   type StatusInput,
@@ -38,6 +41,67 @@ function round(fields: Partial<RoundRecord> = {}): RoundRecord {
     costUsd: 0.001,
     latencyMs: 400,
     ...fields,
+  };
+}
+
+/** One healthy session: a single round that suggested a skill, beside a long lifetime tally. */
+const session = emptyTally();
+applyRound(
+  session,
+  round({
+    outcome: "suggested",
+    latencyMs: 438,
+    inputTokens: 12_480,
+    costUsd: null,
+    gate: 0.83,
+    shortlist: ["review-code", "tdd"],
+    winner: "review-code",
+    winnerFits: 0.71,
+  }),
+);
+
+const lifetime: LifetimeState = {
+  ...emptyLifetime(Date.parse("2026-10-13T00:00:00Z")),
+  rounds: 381,
+  apiCalls: 496,
+  suggested: 97,
+  none: 241,
+  failed: 43,
+  skipped: 47,
+  inputTokens: 331_204,
+  costUsd: 0.0553,
+  latencies: [388],
+  sessionIds: ["a", "b"],
+};
+
+const last: RoundRecord = {
+  at: Date.parse("2026-10-13T14:02:11Z"),
+  outcome: "suggested",
+  apiCalls: 2,
+  rankCalls: 1,
+  rerankCalls: 1,
+  inputTokens: 12_480,
+  costUsd: null,
+  latencyMs: 438,
+  gate: 0.83,
+  shortlist: ["review-code", "tdd"],
+  winner: "review-code",
+  winnerFits: 0.71,
+};
+
+/** A complete report input, so each test overrides only what it is about. */
+function input(overrides: Partial<StatusInput> = {}): StatusInput {
+  return {
+    session,
+    lifetime,
+    last,
+    lastModel: "typesafe/jev-latest",
+    lastRosterSize: 67,
+    modelError: null,
+    lastSkip: null,
+    configSources: [],
+    configError: null,
+    ...overrides,
   };
 }
 
@@ -330,66 +394,6 @@ describe("outcomeFor", () => {
 });
 
 describe("renderStatus", () => {
-  const session = emptyTally();
-  applyRound(
-    session,
-    round({
-      outcome: "suggested",
-      latencyMs: 438,
-      inputTokens: 12_480,
-      costUsd: null,
-      gate: 0.83,
-      shortlist: ["review-code", "tdd"],
-      winner: "review-code",
-      winnerFits: 0.71,
-    }),
-  );
-
-  const lifetime: LifetimeState = {
-    ...emptyLifetime(Date.parse("2026-10-13T00:00:00Z")),
-    rounds: 381,
-    apiCalls: 496,
-    suggested: 97,
-    none: 241,
-    failed: 43,
-    skipped: 47,
-    inputTokens: 331_204,
-    costUsd: 0.0553,
-    latencies: [388],
-    sessionIds: ["a", "b"],
-  };
-
-  const last: RoundRecord = {
-    at: Date.parse("2026-10-13T14:02:11Z"),
-    outcome: "suggested",
-    apiCalls: 2,
-    rankCalls: 1,
-    rerankCalls: 1,
-    inputTokens: 12_480,
-    costUsd: null,
-    latencyMs: 438,
-    gate: 0.83,
-    shortlist: ["review-code", "tdd"],
-    winner: "review-code",
-    winnerFits: 0.71,
-  };
-
-  /** A complete report input, so each test overrides only what it is about. */
-  function input(overrides: Partial<StatusInput> = {}): StatusInput {
-    return {
-      session,
-      lifetime,
-      last,
-      lastModel: "typesafe/jev-latest",
-      lastRosterSize: 67,
-      modelError: null,
-      lastSkip: null,
-      configSources: [],
-      configError: null,
-      ...overrides,
-    };
-  }
-
   it("shows session and lifetime side by side", () => {
     const text = renderStatus(input());
     expect(text).toContain("1 session / 381 lifetime");
@@ -413,7 +417,7 @@ describe("renderStatus", () => {
     const text = renderStatus(input());
     expect(text).toContain("typesafe/jev-latest");
     expect(text).toContain("roster of 67");
-    expect(text).toContain("gate       0.83");
+    expect(text).toContain("gate        0.83");
     expect(text).toContain("[review-code, tdd]");
     expect(text).toContain("suggested review-code 0.71");
   });
@@ -438,7 +442,7 @@ describe("renderStatus", () => {
       }),
     );
     expect(text).toContain("(none yet this session)");
-    expect(text).toContain("skipped    no-reader");
+    expect(text).toContain("skipped     no-reader");
   });
 
   it("surfaces a model-resolution failure and the config sources", () => {
@@ -465,5 +469,104 @@ describe("renderStatus", () => {
 
   it("never prints the prompt text", () => {
     expect(renderStatus(input())).not.toContain("state.request");
+  });
+
+  it("starts every labelled value in the same column", () => {
+    const labelled = renderStatus(input())
+      .split("\n")
+      .filter((line) =>
+        /^ {2}(metric|rounds|api calls|suggested|none|failed|skipped|tokens|latency|last round|gate|shortlist|result)\b/.test(
+          line,
+        ),
+      );
+
+    expect(labelled.length).toBeGreaterThan(10);
+    for (const line of labelled) {
+      expect(line[13]).toBe(" ");
+      expect(line[14]).not.toBe(" ");
+    }
+  });
+
+  it("aligns the value of a session that has run nothing yet", () => {
+    const lines = renderStatus(
+      input({
+        session: emptyTally(),
+        lifetime: emptyLifetime(1),
+        last: null,
+        lastSkip: "no-model",
+      }),
+    ).split("\n");
+
+    for (const label of ["last round", "skipped"]) {
+      const line = lines.find((candidate) => candidate.startsWith(`  ${label}`))!;
+      expect(line[13]).toBe(" ");
+      expect(line[14]).not.toBe(" ");
+    }
+  });
+});
+
+describe("renderStatusStyled", () => {
+  /** A painter that writes the color of a span into the text, so a test can assert on it. */
+  const marker: Painter = (color, text) => `<${color}>${text}</${color}>`;
+  /** The color a row's value spans carry, with the markup stripped from the label column. */
+  const rowOf = (styled: string[], label: string): string =>
+    styled.find((line) => strip(line).startsWith(`  ${label}`))!;
+  const strip = (text: string): string => text.replace(/<\/?[a-z]+>/g, "");
+
+  const styled = (overrides: Partial<StatusInput> = {}): string[] =>
+    renderStatusStyled(input(overrides), marker);
+
+  it("is the plain report with color added", () => {
+    expect(strip(styled().join("\n"))).toBe(renderStatus(input()));
+    expect(renderStatusStyled(input(), PLAIN)).toEqual(renderStatus(input()).split("\n"));
+  });
+
+  it("colors a rate by whether it is a problem", () => {
+    const lines = styled();
+    expect(rowOf(lines, "suggested")).toContain("<good>100% (1/1)</good>");
+    expect(rowOf(lines, "none")).toContain("<value>0% (0/1)</value>");
+    // A failure at zero is not news; a failure at 100% is.
+    expect(rowOf(lines, "failed")).toContain("<quiet>0% (0/1)</quiet>");
+
+    const broken = emptyTally();
+    applyRound(broken, round({ outcome: "failed", errorCode: "auth" }));
+    expect(rowOf(styled({ session: broken, last: null }), "failed")).toContain(
+      "<bad>100% (1/1)</bad>",
+    );
+  });
+
+  it("flags an unpriced cost rather than passing it off as a value", () => {
+    expect(styled().join("\n")).toContain("<warn> · cost n/a</warn>");
+  });
+
+  it("makes a suggestion good and a failure bad", () => {
+    expect(styled().join("\n")).toContain("<good>suggested review-code 0.71</good>");
+
+    const failed: RoundRecord = {
+      ...last,
+      outcome: "failed",
+      errorCode: "auth",
+      reason: "System One API error (401)",
+    };
+    const lines = styled({ last: failed });
+    expect(rowOf(lines, "result")).toContain("<bad>failed auth · System One API error (401)</bad>");
+    expect(rowOf(lines, "result")).not.toContain("<good>");
+  });
+
+  it("makes the title the heading and the labels quieter than the values", () => {
+    const lines = styled();
+    expect(lines[0]).toContain("<title>auto-suggest-skill</title>");
+    expect(rowOf(lines, "rounds")).toContain("<label>rounds     </label> <value>1</value>");
+    expect(rowOf(lines, "metric")).toContain("<quiet>session</quiet>");
+  });
+
+  it("surfaces an error and the config sources in their own colors", () => {
+    const lines = styled({
+      last: null,
+      configError: "could not read /agent/auto-suggest-skill.json",
+      configSources: ["/agent/auto-suggest-skill.json (threshold)"],
+    });
+    expect(lines.join("\n")).toContain("<bad>could not read /agent/auto-suggest-skill.json</bad>");
+    expect(lines.join("\n")).toContain("<quiet>/agent/auto-suggest-skill.json (threshold)</quiet>");
   });
 });

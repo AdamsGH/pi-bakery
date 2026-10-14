@@ -86,6 +86,7 @@ interface TurnResult {
 
 function harness(options: { tools?: string[]; sessionId?: string } = {}) {
   const handlers = new Map<string, Array<(event: never, ctx: never) => unknown>>();
+  const commands = new Map<string, (args: string, ctx: never) => Promise<void>>();
   const decided: DecisionRequest[] = [];
   const notifications: string[] = [];
 
@@ -121,7 +122,10 @@ function harness(options: { tools?: string[]; sessionId?: string } = {}) {
       return () => {};
     },
     getActiveTools: () => options.tools ?? ["read", "bash"],
-    registerCommand: () => {},
+    registerCommand: (
+      name: string,
+      command: { handler: (args: string, ctx: never) => Promise<void> },
+    ) => commands.set(name, command.handler),
   };
 
   extension(pi as never);
@@ -136,6 +140,14 @@ function harness(options: { tools?: string[]; sessionId?: string } = {}) {
   return {
     decided,
     notifications,
+    /** The commands the extension registered, so a test can invoke one as Pi does. */
+    commands,
+    /** Invoke a registered command, with whatever of the context the test needs to add. */
+    async command(name: string, overrides: Record<string, unknown> = {}): Promise<void> {
+      const handler = commands.get(name);
+      if (!handler) throw new Error(`no command named ${name}`);
+      await handler("", { ...ctx, ...overrides } as never);
+    },
     async start() {
       await fire("session_start", { type: "session_start" });
     },
@@ -293,5 +305,67 @@ describe("the counter file", () => {
     await test.shutdown();
 
     expect(counter()).toMatchObject({ rounds: 0, skipped: 1, suggested: 0 });
+  });
+});
+
+describe("auto-suggest-skill:status", () => {
+  /** A theme stand-in that makes each span visible and records the tokens it was asked for. */
+  function themeStub() {
+    const tokens: string[] = [];
+    return {
+      tokens,
+      /** The tokens `theme.fg` was called with, and the text it produced. */
+      fg: (color: string, text: string) => {
+        tokens.push(color);
+        return `<${color}>${text}</>`;
+      },
+      bold: (text: string) => `<b>${text}</b>`,
+    };
+  }
+
+  it("notifies the plain report when there is no terminal to draw on", async () => {
+    const test = harness();
+    await test.start();
+
+    await test.command("auto-suggest-skill:status", { mode: "rpc" });
+
+    expect(test.notifications.at(-1)).toContain("auto-suggest-skill");
+    expect(test.notifications.at(-1)).toContain("(none yet this session)");
+  });
+
+  it("paints a panel from theme tokens only, and closes on Enter", async () => {
+    const test = harness();
+    await test.start();
+    const theme = themeStub();
+    let panel = "";
+    let closed = false;
+
+    await test.command("auto-suggest-skill:status", {
+      mode: "tui",
+      ui: {
+        notify: () => {},
+        custom: async (
+          factory: (
+            tui: unknown,
+            theme: unknown,
+            keybindings: unknown,
+            done: () => void,
+          ) => { render: (width: number) => string[]; handleInput: (data: string) => void },
+        ) => {
+          const component = factory({}, theme, {}, () => {
+            closed = true;
+          });
+          // Wide enough that the stand-in markup, which counts as visible text, cannot wrap a span.
+          panel = component.render(200).join("\n");
+          component.handleInput("\r");
+        },
+      },
+    });
+
+    expect(panel).toContain("<b><accent>auto-suggest-skill</></b>");
+    expect([...new Set(theme.tokens)].sort()).toEqual(["accent", "border", "dim", "muted", "text"]);
+    expect(closed).toBe(true);
+    // The panel replaces the notification rather than joining it.
+    expect(test.notifications).toHaveLength(0);
   });
 });
