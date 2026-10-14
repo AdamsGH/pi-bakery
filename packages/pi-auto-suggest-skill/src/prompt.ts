@@ -26,15 +26,15 @@ export const GUIDANCE =
   "file and follow it. If none is present, continue without a skill.";
 
 /**
- * Prompts too short to need a skill, checked locally so they cost nothing. Empty prompts, slash
- * commands (which are not tasks), and prompts of three words or fewer are skipped. Adapted from D's
- * `trivialTurn`, which measured it.
+ * Prompts that are not a task at all, checked locally so they cost nothing: an empty prompt and a
+ * bare slash command. A word count is deliberately not a gate — a one-word prompt is the strongest
+ * routing signal there is when it names a skill (`commit`), and skipping short prompts left both
+ * the roster and the decision call behind on a turn the user considered a turn.
  */
 export function trivialTurn(text: string): boolean {
   const trimmed = String(text ?? "").trim();
   if (!trimmed) return true;
-  if (trimmed.startsWith("/")) return true;
-  return trimmed.split(/\s+/).length <= 3;
+  return trimmed.startsWith("/");
 }
 
 /**

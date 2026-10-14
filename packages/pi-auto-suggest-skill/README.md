@@ -7,7 +7,8 @@ recommendation.
 
 - **Strip** — Pi's `<available_skills>` block is removed, so the roster stops costing context.
 - **Route** — a gate, a wide ranking and a rerank over `SKILL.md` excerpts pick at most one skill.
-- **Fail open** — any turn the extension cannot decide for leaves Pi's own skill list untouched.
+- **Fail open** — a session the extension does not handle keeps Pi's own skill list. Once a round
+  has removed the list, it stays removed for the rest of the session.
 
 Routing is always on. There is no on-demand tool: the model cannot ask for a skill, it is told.
 
@@ -62,9 +63,9 @@ A model ID is `provider/id` and is split on the first slash, because IDs contain
 
 ## How it decides
 
-1. **Cheap local gates.** An empty prompt, a slash command, a prompt of three words or fewer, a
-   `/skill:name` expansion, or a session with neither `read` nor `bash` active — none of these
-   makes a decision call, and none of them strips anything.
+1. **Cheap local gates.** An empty prompt, a slash command, or a `/skill:name` expansion — the user
+   already named the skill — makes no decision call. Prompt length is not a gate: one word is enough
+   to name a skill. A session with neither `read` nor `bash` active is left entirely alone.
 2. **Gate.** Three questions ride in the first ranking call: does the request act on the user's
    system, would an expert consult a documented procedure, and would prose alone suffice (the last
    inverted). Their mean below `threshold` ends the round with no suggestion.
@@ -77,6 +78,10 @@ A skill the model has already read this session is not recommended again.
 
 ## Cost
 
+Every routed turn spends at least one decision call, and a second when the gate passes. Only a turn
+that skips — an empty prompt, a slash command, a `/skill:name` expansion, `alwaysSuggest`, a
+session with no reader, a disabled extension — spends nothing.
+
 `/auto-suggest-skill:status` reports tokens always, and a dollar figure only when the model has a
 catalog price. Six of the twenty-six shipped classifier models have none — including
 `typesafe/jev-latest`, the first default preference — and Pi reports those as `$0` however many
@@ -87,5 +92,6 @@ tokens they consume, so the report prints `cost n/a` instead of a misleading zer
 Derived from [`iamdin/pi-jev-skill-suggestion`](https://github.com/iamdin/pi-jev-skill-suggestion)
 (MIT): the strip, the two-stage router, the context dedup and the gate and fit thresholds are that
 project's. Its on-demand tool and trigger configuration are removed; the model preference, the
-config file, the statistics and the status command are new. The `trivialTurn` prompt filter is from
-[`damian87x/jev-pi-skills`](https://github.com/damian87x/jev-pi-skills) (MIT).
+config file, the statistics and the status command are new. The `trivialTurn` prompt filter began as
+[`damian87x/jev-pi-skills`](https://github.com/damian87x/jev-pi-skills) (MIT) and is now only the
+empty-prompt and slash-command cases.

@@ -19,20 +19,16 @@ describe("trivialTurn", () => {
     expect(trivialTurn("/compact")).toBe(true);
   });
 
-  it("skips prompts of three words or fewer", () => {
-    expect(trivialTurn("thanks")).toBe(true);
-    expect(trivialTurn("fix the bug")).toBe(true);
-    expect(trivialTurn("what is 2+2?")).toBe(true);
+  it("routes a short prompt, because a one-word prompt can name a skill", () => {
+    expect(trivialTurn("thanks")).toBe(false);
+    expect(trivialTurn("commit")).toBe(false);
+    expect(trivialTurn("fix the bug")).toBe(false);
+    expect(trivialTurn("what is 2+2?")).toBe(false);
   });
 
-  it("routes prompts of four words or more", () => {
+  it("routes prompts of any length", () => {
     expect(trivialTurn("please review this diff")).toBe(false);
     expect(trivialTurn("create a short pitch deck as pptx")).toBe(false);
-  });
-
-  it("counts on whitespace runs, not characters", () => {
-    expect(trivialTurn("a   b   c")).toBe(true);
-    expect(trivialTurn("a   b   c   d")).toBe(false);
   });
 });
 

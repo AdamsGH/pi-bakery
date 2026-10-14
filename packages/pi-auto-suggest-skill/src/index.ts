@@ -8,9 +8,12 @@
  *
  * Shape:
  *   - Routing is always on. There is no on-demand tool: the model cannot ask.
- *   - The roster is removed exactly when a routing round happens. Every path that does not decide
- *     anything — no reader, a trivial prompt, no model, a disabled switch — leaves Pi's prompt
- *     untouched, so the model keeps its own listing whenever this extension has nothing to say.
+ *   - The roster is removed when a routing round happens, and stays removed for the rest of the
+ *     session. The paths that decide nothing — no reader, a disabled switch — leave Pi's prompt
+ *     untouched, so a session this extension does not handle keeps Pi's own listing; once a round
+ *     has taken it away, a later turn must not put it back, or the prompt would flip between two
+ *     shapes and the guidance paragraph already in the transcript would contradict the list next
+ *     to it.
  *   - A failure to decide is not a failure of the turn: the roster stays removed and no
  *     recommendation arrives, which is what A does and what the guidance paragraph describes.
  *
@@ -37,12 +40,15 @@ import {
   applyRound,
   applySkip,
   counterPath,
+  emptyPending,
   emptyTally,
+  mergeLifetime,
   outcomeFor,
   readLifetime,
   renderStatus,
   writeLifetime,
   type LifetimeState,
+  type PendingLifetime,
   type RoundRecord,
   type Tally,
 } from "./stats.js";
@@ -66,12 +72,22 @@ export function toRoster(skills: readonly Skill[] | undefined): RosterSkill[] {
     }));
 }
 
+/** The part of `before_agent_start`'s event this extension reads and writes. */
+interface SystemPromptEvent {
+  systemPromptOptions: { skills: Skill[]; sections: Record<string, string> };
+}
+
 interface SessionState {
   config: AutoSuggestConfig;
   configSources: string[];
   configError: string | null;
   session: Tally;
+  /** The lifetime tally as the counter file last had it, so the status report can show it. */
   lifetime: LifetimeState;
+  /** This session's contributions since the last write, folded into the file on every write. */
+  pending: PendingLifetime;
+  /** True once a round has removed Pi's roster, after which no turn restores it. */
+  rosterRemoved: boolean;
   last: RoundRecord | null;
   lastModel: string | null;
   lastRosterSize: number | null;
@@ -93,6 +109,8 @@ export default function (pi: ExtensionAPI) {
       configError: loaded.error ?? null,
       session: emptyTally(),
       lifetime: readLifetime(counterFile),
+      pending: emptyPending(),
+      rosterRemoved: false,
       last: null,
       lastModel: null,
       lastRosterSize: null,
@@ -103,35 +121,59 @@ export default function (pi: ExtensionAPI) {
     return state;
   }
 
+  /**
+   * Persist this session's unsaved contributions, merged into the counter file as it is on disk
+   * right now rather than written out from the snapshot loaded at session start. Several Pi
+   * processes share the file, so a snapshot write silently drops every round another session
+   * recorded in between.
+   */
+  function flush(current: SessionState): void {
+    const { tally, sessionIds } = current.pending;
+    if (tally.rounds === 0 && tally.skipped === 0 && sessionIds.length === 0) return;
+    const merged = mergeLifetime(readLifetime(current.counterFile), current.pending);
+    writeLifetime(current.counterFile, merged);
+    current.lifetime = merged;
+    current.pending = emptyPending();
+  }
+
   /** Apply a round to both tallies and persist. Writes after every round so a crash loses nothing. */
   function commitRound(current: SessionState, record: RoundRecord): void {
     applyRound(current.session, record);
-    applyRound(current.lifetime, record);
+    applyRound(current.pending.tally, record);
     current.last = record;
-    writeLifetime(current.counterFile, current.lifetime);
+    flush(current);
   }
 
   function skip(current: SessionState, reason: SkipReason): void {
     applySkip(current.session);
-    applySkip(current.lifetime);
+    applySkip(current.pending.tally);
     current.lastSkip = reason;
+    flush(current);
   }
 
   /** Remove the roster and describe the new contract. Called only when a round is about to run. */
-  function strip(event: {
-    systemPromptOptions: { skills: Skill[]; sections: Record<string, string> };
-  }): void {
+  function strip(current: SessionState, event: SystemPromptEvent): void {
     event.systemPromptOptions.skills = [];
     event.systemPromptOptions.sections[GUIDANCE_SECTION] = GUIDANCE;
+    current.rosterRemoved = true;
+  }
+
+  /**
+   * A turn that decides nothing. Pi's list is left alone unless this session already had it removed,
+   * in which case it stays removed: putting it back would churn the prompt cache and contradict the
+   * guidance paragraph sitting in the transcript beside it.
+   */
+  function skipTurn(current: SessionState, event: SystemPromptEvent, reason: SkipReason): void {
+    if (current.rosterRemoved) strip(current, event);
+    skip(current, reason);
   }
 
   pi.on("session_start", async (_event, ctx) => {
     state = null;
     const current = ensureState(ctx);
     const sessionId = ctx.sessionManager.getSessionId();
-    if (!current.lifetime.sessionIds.includes(sessionId))
-      current.lifetime.sessionIds.push(sessionId);
-    writeLifetime(current.counterFile, current.lifetime);
+    if (!current.pending.sessionIds.includes(sessionId)) current.pending.sessionIds.push(sessionId);
+    flush(current);
 
     if (current.configError) {
       ctx.ui.notify(`auto-suggest-skill: ${current.configError}`, "error");
@@ -142,7 +184,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", () => {
-    if (state) writeLifetime(state.counterFile, state.lifetime);
+    if (state) flush(state);
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
@@ -164,7 +206,7 @@ export default function (pi: ExtensionAPI) {
 
     // Pi expands `/skill:name` before this hook, so the prompt is a skill envelope, not a task.
     if (isSkillExpansion(task) || trivialTurn(task)) {
-      skip(current, "trivial");
+      skipTurn(current, event, "trivial");
       return undefined;
     }
 
@@ -182,7 +224,7 @@ export default function (pi: ExtensionAPI) {
         shortlist: [],
         fits: {},
       };
-      strip(event);
+      strip(current, event);
       commitRound(current, {
         at: Date.now(),
         outcome: "suggested",
@@ -205,7 +247,7 @@ export default function (pi: ExtensionAPI) {
     const excluded = new Set(current.config.neverSuggest);
     const candidates = roster.filter((skill) => !excluded.has(skill.name));
     if (candidates.length === 0) {
-      skip(current, "no-candidates");
+      skipTurn(current, event, "no-candidates");
       return undefined;
     }
 
@@ -218,13 +260,13 @@ export default function (pi: ExtensionAPI) {
     });
     if (!isResolvedModel(resolution)) {
       current.modelError = resolution.error;
-      skip(current, "no-model");
+      skipTurn(current, event, "no-model");
       return undefined;
     }
     current.modelError = null;
 
     // Every gate above passed, so this turn has a routing decision: remove the roster now.
-    strip(event);
+    strip(current, event);
 
     const model: ClassifierModel<ClassifierApi> = resolution.model;
     const modelLabel = `${model.provider}/${model.id}`;
