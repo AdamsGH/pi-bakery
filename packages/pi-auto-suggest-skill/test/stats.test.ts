@@ -3,18 +3,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  addTally,
   appendDebugLog,
   applyRound,
   applySkip,
   counterPath,
   emptyLifetime,
+  emptyPending,
   emptyTally,
+  mergeLifetime,
   outcomeFor,
   percentile,
   readLifetime,
   renderStatus,
   writeLifetime,
   type LifetimeState,
+  type PendingLifetime,
   type RoundRecord,
   type StatusInput,
 } from "../src/stats.js";
@@ -95,6 +99,91 @@ describe("applySkip", () => {
     applySkip(tally);
     expect(tally.skipped).toBe(2);
     expect(tally.rounds).toBe(0);
+  });
+});
+
+describe("mergeLifetime", () => {
+  /** One session's unsaved contribution, as the extension accumulates it. */
+  function pending(rounds: Partial<RoundRecord>[], sessionId: string): PendingLifetime {
+    const held = emptyPending();
+    for (const fields of rounds) applyRound(held.tally, round(fields));
+    held.sessionIds.push(sessionId);
+    return held;
+  }
+
+  /** What the extension does on every round: read the file, fold in the delta, write it back. */
+  function flush(path: string, held: PendingLifetime): void {
+    writeLifetime(path, mergeLifetime(readLifetime(path), held));
+  }
+
+  it("adds a session's rounds to what is on disk and keeps the disk's other sessions", () => {
+    const disk = emptyLifetime(1);
+    applyRound(disk, round({ outcome: "none" }));
+    disk.sessionIds.push("session-a");
+
+    const merged = mergeLifetime(disk, pending([{ outcome: "suggested" }], "session-b"));
+
+    expect(merged.rounds).toBe(2);
+    expect([merged.none, merged.suggested]).toEqual([1, 1]);
+    expect(merged.sessionIds).toEqual(["session-a", "session-b"]);
+    expect(merged.latencies).toHaveLength(2);
+  });
+
+  it("does not mutate the state it merges into", () => {
+    const disk = emptyLifetime(1);
+    mergeLifetime(disk, pending([{ outcome: "suggested" }], "session-a"));
+    expect(disk.rounds).toBe(0);
+    expect(disk.sessionIds).toEqual([]);
+  });
+
+  it("does not count a session id twice", () => {
+    const disk = emptyLifetime(1);
+    disk.sessionIds.push("session-a");
+    expect(mergeLifetime(disk, pending([], "session-a")).sessionIds).toEqual(["session-a"]);
+  });
+
+  /**
+   * The regression: the counter file is shared by every Pi process on the machine. A session that
+   * writes out the snapshot it loaded at session start erases every round another session recorded
+   * since, which is what made the lifetime figures undercount.
+   */
+  it("keeps rounds from both of two interleaved sessions", () => {
+    const dir = sandbox();
+    const path = join(dir, "stats.json");
+
+    const a = pending([{ outcome: "suggested" }], "session-a");
+    const b = pending([{ outcome: "none" }], "session-b");
+    const aAgain = pending([{ outcome: "failed", costUsd: null }], "session-a");
+
+    flush(path, a);
+    flush(path, b);
+    flush(path, aAgain);
+
+    const onDisk = readLifetime(path);
+    expect(onDisk.rounds).toBe(3);
+    expect([onDisk.suggested, onDisk.none, onDisk.failed]).toEqual([1, 1, 1]);
+    expect(onDisk.sessionIds).toEqual(["session-a", "session-b"]);
+  });
+
+  it("folds a skipped turn in without touching the rounds", () => {
+    const disk = emptyLifetime(1);
+    const held = emptyPending();
+    applySkip(held.tally);
+    const merged = mergeLifetime(disk, held);
+    expect(merged.skipped).toBe(1);
+    expect(merged.rounds).toBe(0);
+  });
+});
+
+describe("addTally", () => {
+  it("sums every counter and caps latencies", () => {
+    const target = emptyTally();
+    const delta = emptyTally();
+    applyRound(delta, round({ costUsd: null, latencyMs: 5 }));
+    addTally(target, delta);
+    expect(target.rounds).toBe(1);
+    expect(target.anyUnpriced).toBe(true);
+    expect(target.latencies).toEqual([5]);
   });
 });
 

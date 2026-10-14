@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The lifetime counter is folded into the file at write time rather than written out from the
+  snapshot loaded at session start, so a session no longer erases the rounds another Pi process
+  recorded in between.
+
 ## [0.1.0] - 2026-10-14
 
 ### Added

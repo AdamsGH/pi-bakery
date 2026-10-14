@@ -133,6 +133,55 @@ export function applySkip(tally: Tally): void {
   tally.skipped++;
 }
 
+/** Fold one tally into another. Used to apply a session's unsaved delta to the file's state. */
+export function addTally(target: Tally, delta: Tally): void {
+  target.rounds += delta.rounds;
+  target.apiCalls += delta.apiCalls;
+  target.rankCalls += delta.rankCalls;
+  target.rerankCalls += delta.rerankCalls;
+  target.suggested += delta.suggested;
+  target.none += delta.none;
+  target.failed += delta.failed;
+  target.skipped += delta.skipped;
+  target.inputTokens += delta.inputTokens;
+  target.costUsd += delta.costUsd;
+  target.anyUnpriced ||= delta.anyUnpriced;
+  target.latencies.push(...delta.latencies);
+  if (target.latencies.length > MAX_LATENCIES) {
+    target.latencies.splice(0, target.latencies.length - MAX_LATENCIES);
+  }
+}
+
+/** What one session has to contribute to the counter file since the file was last written. */
+export interface PendingLifetime {
+  tally: Tally;
+  sessionIds: string[];
+}
+
+export function emptyPending(): PendingLifetime {
+  return { tally: emptyTally(), sessionIds: [] };
+}
+
+/**
+ * Fold a session's unsaved contributions into the lifetime state as it is on disk right now.
+ *
+ * The counter file is shared by every Pi process on the machine, so a session must never write out
+ * the snapshot it loaded at session start: that would drop every round another session recorded in
+ * the meantime. It writes only what it has added since its own last write.
+ */
+export function mergeLifetime(disk: LifetimeState, pending: PendingLifetime): LifetimeState {
+  const merged: LifetimeState = {
+    ...disk,
+    latencies: [...disk.latencies],
+    sessionIds: [...disk.sessionIds],
+  };
+  addTally(merged, pending.tally);
+  for (const id of pending.sessionIds) {
+    if (!merged.sessionIds.includes(id)) merged.sessionIds.push(id);
+  }
+  return merged;
+}
+
 /** Nearest-rank percentile over a copy, so the tally is not reordered. */
 export function percentile(latencies: readonly number[], fraction: number): number {
   if (latencies.length === 0) return 0;
