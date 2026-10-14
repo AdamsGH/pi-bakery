@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatSuggestion, GUIDANCE, isSkillExpansion, SUGGESTION_TYPE, trivialTurn } from "../src/prompt.js";
+import {
+  formatSuggestion,
+  GUIDANCE,
+  isSkillExpansion,
+  SUGGESTION_TYPE,
+  trivialTurn,
+} from "../src/prompt.js";
 import type { Suggestion } from "../src/types.js";
 
 describe("trivialTurn", () => {
@@ -37,7 +43,8 @@ describe("isSkillExpansion", () => {
   });
 
   it("detects an envelope with trailing task arguments", () => {
-    const prompt = '<skill name="review" location="/s/SKILL.md">\nbody\n</skill>\n\nreview the auth code';
+    const prompt =
+      '<skill name="review" location="/s/SKILL.md">\nbody\n</skill>\n\nreview the auth code';
     expect(isSkillExpansion(prompt)).toBe(true);
   });
 

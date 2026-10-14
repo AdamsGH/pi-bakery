@@ -59,7 +59,11 @@ export function skillReader(activeTools: readonly string[]): "read" | "bash" | u
 export function toRoster(skills: readonly Skill[] | undefined): RosterSkill[] {
   return (skills ?? [])
     .filter((skill) => !skill.disableModelInvocation)
-    .map((skill) => ({ name: skill.name, description: skill.description, filePath: skill.filePath }));
+    .map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      filePath: skill.filePath,
+    }));
 }
 
 interface SessionState {
@@ -114,7 +118,9 @@ export default function (pi: ExtensionAPI) {
   }
 
   /** Remove the roster and describe the new contract. Called only when a round is about to run. */
-  function strip(event: { systemPromptOptions: { skills: Skill[]; sections: Record<string, string> } }): void {
+  function strip(event: {
+    systemPromptOptions: { skills: Skill[]; sections: Record<string, string> };
+  }): void {
     event.systemPromptOptions.skills = [];
     event.systemPromptOptions.sections[GUIDANCE_SECTION] = GUIDANCE;
   }
@@ -123,7 +129,8 @@ export default function (pi: ExtensionAPI) {
     state = null;
     const current = ensureState(ctx);
     const sessionId = ctx.sessionManager.getSessionId();
-    if (!current.lifetime.sessionIds.includes(sessionId)) current.lifetime.sessionIds.push(sessionId);
+    if (!current.lifetime.sessionIds.includes(sessionId))
+      current.lifetime.sessionIds.push(sessionId);
     writeLifetime(current.counterFile, current.lifetime);
 
     if (current.configError) {
@@ -162,7 +169,9 @@ export default function (pi: ExtensionAPI) {
     }
 
     // alwaysSuggest is a deterministic override: it skips the decision call entirely.
-    const forcedName = current.config.alwaysSuggest.find((name) => roster.some((s) => s.name === name));
+    const forcedName = current.config.alwaysSuggest.find((name) =>
+      roster.some((s) => s.name === name),
+    );
     if (forcedName) {
       const forced = roster.find((skill) => skill.name === forcedName)!;
       const suggestion: Suggestion = {

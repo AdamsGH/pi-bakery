@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isResolvedModel, parsePreference, resolveModel, type ClassifierRegistry } from "../src/model.js";
+import {
+  isResolvedModel,
+  parsePreference,
+  resolveModel,
+  type ClassifierRegistry,
+} from "../src/model.js";
 import type { ClassifierApi, ClassifierModel, RosterSkill } from "../src/types.js";
 
 const roster: RosterSkill[] = [
@@ -14,7 +19,11 @@ const bigRoster: RosterSkill[] = Array.from({ length: 69 }, (_, index) => ({
   filePath: `/s/${index}`,
 }));
 
-function model(provider: string, id: string, contextWindow: number): ClassifierModel<ClassifierApi> {
+function model(
+  provider: string,
+  id: string,
+  contextWindow: number,
+): ClassifierModel<ClassifierApi> {
   return {
     type: "classifier",
     id,
@@ -34,8 +43,14 @@ function registryOf(models: readonly ClassifierModel<ClassifierApi>[]): Classifi
 
 describe("parsePreference", () => {
   it("splits on the first slash only, because model ids contain slashes", () => {
-    expect(parsePreference("typesafe/jev-latest")).toEqual({ provider: "typesafe", id: "jev-latest" });
-    expect(parsePreference("openrouter/typesafe/jev-1.13")).toEqual({ provider: "openrouter", id: "typesafe/jev-1.13" });
+    expect(parsePreference("typesafe/jev-latest")).toEqual({
+      provider: "typesafe",
+      id: "jev-latest",
+    });
+    expect(parsePreference("openrouter/typesafe/jev-1.13")).toEqual({
+      provider: "openrouter",
+      id: "typesafe/jev-1.13",
+    });
     expect(parsePreference("openrouter/~typesafe/jev-latest")).toEqual({
       provider: "openrouter",
       id: "~typesafe/jev-latest",
@@ -56,7 +71,10 @@ describe("parsePreference", () => {
 
 describe("resolveModel", () => {
   it("takes the first preference entry that resolves", async () => {
-    const registry = registryOf([model("typesafe", "jev-latest", 64000), model("openrouter", "~typesafe/jev-latest", 32000)]);
+    const registry = registryOf([
+      model("typesafe", "jev-latest", 64000),
+      model("openrouter", "~typesafe/jev-latest", 32000),
+    ]);
     const resolved = await resolveModel({
       registry,
       prefer: ["typesafe/jev-latest", "openrouter/~typesafe/jev-latest"],
@@ -87,7 +105,12 @@ describe("resolveModel", () => {
 
   it("rejects a credentialed model whose context cannot hold the roster", async () => {
     const registry = registryOf([model("typesafe", "tiny", 4096)]);
-    const resolved = await resolveModel({ registry, prefer: ["typesafe/tiny"], roster: bigRoster, task: "x y z w" });
+    const resolved = await resolveModel({
+      registry,
+      prefer: ["typesafe/tiny"],
+      roster: bigRoster,
+      task: "x y z w",
+    });
     expect(isResolvedModel(resolved)).toBe(false);
     if (isResolvedModel(resolved)) return;
     expect(resolved.skipped[0]?.reason).toBe("context-too-small");
@@ -107,7 +130,10 @@ describe("resolveModel", () => {
   });
 
   it("skips a too-small entry but still uses a later viable one", async () => {
-    const registry = registryOf([model("typesafe", "tiny", 4096), model("typesafe", "jev-latest", 64000)]);
+    const registry = registryOf([
+      model("typesafe", "tiny", 4096),
+      model("typesafe", "jev-latest", 64000),
+    ]);
     const resolved = await resolveModel({
       registry,
       prefer: ["typesafe/tiny", "typesafe/jev-latest"],
@@ -120,27 +146,47 @@ describe("resolveModel", () => {
 
   it("admits a small model for a small roster, since there is no floor", async () => {
     const registry = registryOf([model("typesafe", "tiny", 4096)]);
-    const resolved = await resolveModel({ registry, prefer: ["typesafe/tiny"], roster, task: "x y z w" });
+    const resolved = await resolveModel({
+      registry,
+      prefer: ["typesafe/tiny"],
+      roster,
+      task: "x y z w",
+    });
     expect(isResolvedModel(resolved)).toBe(true);
   });
 
   it("reports a malformed preference entry rather than throwing", async () => {
     const registry = registryOf([model("typesafe", "jev-latest", 64000)]);
-    const resolved = await resolveModel({ registry, prefer: ["jev-latest"], roster, task: "x y z w" });
+    const resolved = await resolveModel({
+      registry,
+      prefer: ["jev-latest"],
+      roster,
+      task: "x y z w",
+    });
     expect(isResolvedModel(resolved)).toBe(false);
     if (isResolvedModel(resolved)) return;
     expect(resolved.skipped[0]?.detail).toBe("not a provider/id entry");
   });
 
   it("reports an empty preference list distinctly", async () => {
-    const resolved = await resolveModel({ registry: registryOf([]), prefer: [], roster, task: "x" });
+    const resolved = await resolveModel({
+      registry: registryOf([]),
+      prefer: [],
+      roster,
+      task: "x",
+    });
     expect(isResolvedModel(resolved)).toBe(false);
     if (isResolvedModel(resolved)) return;
     expect(resolved.error).toBe("model.prefer is empty");
   });
 
   it("reports no credentials when nothing in the catalog matches", async () => {
-    const resolved = await resolveModel({ registry: registryOf([]), prefer: ["typesafe/jev-latest"], roster, task: "x" });
+    const resolved = await resolveModel({
+      registry: registryOf([]),
+      prefer: ["typesafe/jev-latest"],
+      roster,
+      task: "x",
+    });
     expect(isResolvedModel(resolved)).toBe(false);
     if (isResolvedModel(resolved)) return;
     expect(resolved.error).toBe("no preferred model has working credentials");
@@ -153,7 +199,12 @@ describe("resolveModel", () => {
         throw new Error("ModelsError: credential store read failed");
       },
     };
-    const resolved = await resolveModel({ registry, prefer: ["typesafe/jev-latest"], roster, task: "x" });
+    const resolved = await resolveModel({
+      registry,
+      prefer: ["typesafe/jev-latest"],
+      roster,
+      task: "x",
+    });
     expect(isResolvedModel(resolved)).toBe(false);
     if (isResolvedModel(resolved)) return;
     expect(resolved.error).toContain("could not list classifier models");
@@ -161,7 +212,12 @@ describe("resolveModel", () => {
 
   it("carries the payload estimate so the status report can explain a rejection", async () => {
     const registry = registryOf([model("typesafe", "jev-latest", 64000)]);
-    const resolved = await resolveModel({ registry, prefer: ["typesafe/jev-latest"], roster: bigRoster, task: "x y z w" });
+    const resolved = await resolveModel({
+      registry,
+      prefer: ["typesafe/jev-latest"],
+      roster: bigRoster,
+      task: "x y z w",
+    });
     expect(isResolvedModel(resolved) && resolved.estimate.totalTokens).toBeGreaterThan(6000);
   });
 });

@@ -4,12 +4,12 @@
   "private": false,
   "description": "Strip Pi's skill list and route each prompt to at most one skill with a decision model",
   "keywords": [
+    "classifier",
     "pi",
     "pi-coding-agent",
     "pi-extension",
     "pi-package",
-    "skills",
-    "classifier"
+    "skills"
   ],
   "bugs": {
     "url": "https://github.com/normful/pi-bakery/issues"

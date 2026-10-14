@@ -94,7 +94,14 @@ export function projectConfigPath(cwd: string): string {
   return join(cwd, CONFIG_DIR_NAME, CONFIG_FILENAME);
 }
 
-const KEYS = ["enabled", "model", "threshold", "neverSuggest", "alwaysSuggest", "debugLog"] as const;
+const KEYS = [
+  "enabled",
+  "model",
+  "threshold",
+  "neverSuggest",
+  "alwaysSuggest",
+  "debugLog",
+] as const;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -106,8 +113,11 @@ function nameList(value: unknown, key: string, warnings: string[]): string[] | u
     warnings.push(`${key} must be an array of skill names; ignored`);
     return undefined;
   }
-  const names = value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
-  if (names.length !== value.length) warnings.push(`${key} contained non-string or empty entries; they were dropped`);
+  const names = value.filter(
+    (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+  );
+  if (names.length !== value.length)
+    warnings.push(`${key} contained non-string or empty entries; they were dropped`);
   return [...new Set(names.map((name) => name.trim()))];
 }
 
@@ -116,7 +126,9 @@ function nameList(value: unknown, key: string, warnings: string[]): string[] | u
  * per key rather than replacing the whole policy. An unreadable file is an error, not a silent
  * fallback: a typo in JSON should be visible, not behave like a missing file.
  */
-function readFile(path: string): { values: Partial<AutoSuggestConfig>; keys: string[]; warnings: string[] } | { error: string } {
+function readFile(
+  path: string,
+): { values: Partial<AutoSuggestConfig>; keys: string[]; warnings: string[] } | { error: string } {
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(path, "utf8"));
@@ -149,7 +161,12 @@ function readFile(path: string): { values: Partial<AutoSuggestConfig>; keys: str
     } else warnings.push("model must be an object with a prefer array; ignored");
   }
   if (raw.threshold !== undefined) {
-    if (typeof raw.threshold === "number" && Number.isFinite(raw.threshold) && raw.threshold >= 0 && raw.threshold <= 1) {
+    if (
+      typeof raw.threshold === "number" &&
+      Number.isFinite(raw.threshold) &&
+      raw.threshold >= 0 &&
+      raw.threshold <= 1
+    ) {
       values.threshold = raw.threshold;
       supplied.push("threshold");
     } else warnings.push("threshold must be a number in [0, 1]; ignored");

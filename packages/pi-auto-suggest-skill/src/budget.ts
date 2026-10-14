@@ -73,6 +73,9 @@ export function estimatePayload(roster: readonly RosterSkill[], task: string): P
  * Whether a model's declared context window can hold the payload with headroom. The safety factor
  * scales with the estimate, so it is not a floor: a small roster admits a small model.
  */
-export function fitsContext(model: ClassifierModel<ClassifierApi>, estimate: PayloadEstimate): boolean {
+export function fitsContext(
+  model: ClassifierModel<ClassifierApi>,
+  estimate: PayloadEstimate,
+): boolean {
   return model.contextWindow >= estimate.totalTokens * CONTEXT_SAFETY;
 }

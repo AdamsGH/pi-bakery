@@ -39,7 +39,11 @@ describe("toRoster", () => {
   });
 
   it("projects only the three fields the router needs", () => {
-    expect(Object.keys(toRoster([skill("a")])[0]!).sort()).toEqual(["description", "filePath", "name"]);
+    expect(Object.keys(toRoster([skill("a")])[0]!).sort()).toEqual([
+      "description",
+      "filePath",
+      "name",
+    ]);
   });
 
   it("handles a missing skills array", () => {

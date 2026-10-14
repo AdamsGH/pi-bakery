@@ -12,7 +12,14 @@
  * than project-scoped: "calls made so far" is a machine-lifetime figure, not a per-project one.
  * Writes are atomic (temp file plus rename) at mode 0600.
  */
-import { appendFileSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { DecisionStage, SkipReason, Suggestion } from "./types.js";
@@ -146,13 +153,19 @@ export function readLifetime(path: string): LifetimeState {
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<LifetimeState>;
     if (parsed.version !== 1) return emptyLifetime(Date.now());
-    const base = emptyLifetime(typeof parsed.firstSeenAt === "number" ? parsed.firstSeenAt : Date.now());
+    const base = emptyLifetime(
+      typeof parsed.firstSeenAt === "number" ? parsed.firstSeenAt : Date.now(),
+    );
     return {
       ...base,
       ...parsed,
       version: 1,
-      latencies: Array.isArray(parsed.latencies) ? parsed.latencies.filter((n) => typeof n === "number") : [],
-      sessionIds: Array.isArray(parsed.sessionIds) ? parsed.sessionIds.filter((s) => typeof s === "string") : [],
+      latencies: Array.isArray(parsed.latencies)
+        ? parsed.latencies.filter((n) => typeof n === "number")
+        : [],
+      sessionIds: Array.isArray(parsed.sessionIds)
+        ? parsed.sessionIds.filter((s) => typeof s === "string")
+        : [],
     };
   } catch {
     return emptyLifetime(Date.now());
@@ -270,17 +283,35 @@ export function renderStatus(input: StatusInput): string {
   lines.push(row("metric", "session", "lifetime"));
   lines.push(row("rounds", String(session.rounds), String(lifetime.rounds)));
   lines.push(row("api calls", String(session.apiCalls), String(lifetime.apiCalls)));
-  lines.push(row("suggested", rate(session.suggested, session.rounds), rate(lifetime.suggested, lifetime.rounds)));
+  lines.push(
+    row(
+      "suggested",
+      rate(session.suggested, session.rounds),
+      rate(lifetime.suggested, lifetime.rounds),
+    ),
+  );
   lines.push(row("none", rate(session.none, session.rounds), rate(lifetime.none, lifetime.rounds)));
-  lines.push(row("failed", rate(session.failed, session.rounds), rate(lifetime.failed, lifetime.rounds)));
+  lines.push(
+    row("failed", rate(session.failed, session.rounds), rate(lifetime.failed, lifetime.rounds)),
+  );
   lines.push(row("skipped", String(session.skipped), String(lifetime.skipped)));
   lines.push(row("tokens", spend(session), spend(lifetime)));
   lines.push(
-    row("latency", `p50 ${percentile(session.latencies, 0.5)}ms`, `p50 ${percentile(lifetime.latencies, 0.5)}ms`),
+    row(
+      "latency",
+      `p50 ${percentile(session.latencies, 0.5)}ms`,
+      `p50 ${percentile(lifetime.latencies, 0.5)}ms`,
+    ),
   );
   if (lifetime.sessionIds.length > 0) {
     const plural = lifetime.sessionIds.length === 1 ? "" : "s";
-    lines.push(row("since", "", `${day(lifetime.firstSeenAt)} (${lifetime.sessionIds.length} session${plural})`));
+    lines.push(
+      row(
+        "since",
+        "",
+        `${day(lifetime.firstSeenAt)} (${lifetime.sessionIds.length} session${plural})`,
+      ),
+    );
   }
 
   lines.push("");
@@ -304,7 +335,9 @@ export function renderStatus(input: StatusInput): string {
     const fits = last.winnerFits === undefined ? "" : ` ${last.winnerFits.toFixed(2)}`;
     lines.push(`  result     suggested ${last.winner ?? "?"}${fits} · ${last.latencyMs}ms`);
   } else if (last.outcome === "none") {
-    lines.push(`  result     no suggestion · ${last.reason ?? "no reason recorded"} · ${last.latencyMs}ms`);
+    lines.push(
+      `  result     no suggestion · ${last.reason ?? "no reason recorded"} · ${last.latencyMs}ms`,
+    );
   } else {
     lines.push(
       `  result     failed ${last.errorCode ?? "error"} · ${truncate(last.reason ?? "", 60)} · ${last.latencyMs}ms`,

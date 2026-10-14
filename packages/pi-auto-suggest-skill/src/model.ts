@@ -79,10 +79,19 @@ export async function resolveModel(options: {
 
   let available: readonly ClassifierModel<ClassifierApi>[];
   try {
-    available = await registry.getAvailableOfType("classifier", undefined, signal ? { signal } : {});
+    available = await registry.getAvailableOfType(
+      "classifier",
+      undefined,
+      signal ? { signal } : {},
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { error: `could not list classifier models: ${message}`, skipped: [], availableCount: 0, allTooSmall: false };
+    return {
+      error: `could not list classifier models: ${message}`,
+      skipped: [],
+      availableCount: 0,
+      allTooSmall: false,
+    };
   }
 
   const byId = new Map(available.map((model) => [`${model.provider}/${model.id}`, model]));
@@ -96,7 +105,11 @@ export async function resolveModel(options: {
     }
     const model = byId.get(entry.trim());
     if (!model) {
-      skipped.push({ id: entry, reason: "not-credentialed", detail: "no working credentials, or not in the catalog" });
+      skipped.push({
+        id: entry,
+        reason: "not-credentialed",
+        detail: "no working credentials, or not in the catalog",
+      });
       continue;
     }
     if (!fitsContext(model, estimate)) {

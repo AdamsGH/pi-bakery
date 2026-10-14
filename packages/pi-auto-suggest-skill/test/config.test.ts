@@ -2,7 +2,13 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CONFIG_FILENAME, defaults, globalConfigPath, loadConfig, projectConfigPath } from "../src/config.js";
+import {
+  CONFIG_FILENAME,
+  defaults,
+  globalConfigPath,
+  loadConfig,
+  projectConfigPath,
+} from "../src/config.js";
 
 /** A throwaway agent directory plus project directory, so no test touches the real one. */
 function sandbox(): { agentDir: string; cwd: string } {
@@ -67,7 +73,10 @@ describe("loadConfig", () => {
     expect(loaded.config.threshold).toBe(0.1);
     expect(loaded.config.neverSuggest).toEqual(["a"]);
     expect(loaded.config.alwaysSuggest).toEqual(["b"]);
-    expect(loaded.sources.map((source) => source.keys)).toEqual([["threshold", "neverSuggest", "alwaysSuggest"], ["threshold"]]);
+    expect(loaded.sources.map((source) => source.keys)).toEqual([
+      ["threshold", "neverSuggest", "alwaysSuggest"],
+      ["threshold"],
+    ]);
   });
 
   it("ignores the project file when the project is not trusted", () => {
@@ -121,7 +130,9 @@ describe("loadConfig", () => {
   it("reads model.prefer and rejects an empty list", () => {
     const { agentDir, cwd } = sandbox();
     writeGlobal(agentDir, { model: { prefer: ["opencode/jev-1.13-free"] } });
-    expect(loadConfig({ cwd, trusted: true, agentDir }).config.prefer).toEqual(["opencode/jev-1.13-free"]);
+    expect(loadConfig({ cwd, trusted: true, agentDir }).config.prefer).toEqual([
+      "opencode/jev-1.13-free",
+    ]);
     writeGlobal(agentDir, { model: { prefer: [] } });
     const loaded = loadConfig({ cwd, trusted: true, agentDir });
     expect(loaded.config.prefer).toEqual(defaults().prefer);

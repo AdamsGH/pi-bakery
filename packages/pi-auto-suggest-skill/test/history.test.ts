@@ -10,13 +10,28 @@ function chain() {
   let counter = 0;
   const add = (entry: Record<string, unknown>): void => {
     const id = `e${++counter}`;
-    entries.push({ id, parentId: entries.at(-1)?.id ?? null, timestamp: "", ...entry } as SessionEntry);
+    entries.push({
+      id,
+      parentId: entries.at(-1)?.id ?? null,
+      timestamp: "",
+      ...entry,
+    } as SessionEntry);
   };
-  const user = (text: string): void => add({ type: "message", message: { role: "user", content: text } });
+  const user = (text: string): void =>
+    add({ type: "message", message: { role: "user", content: text } });
   const read = (path: string, isError = false): void => {
     const id = `t${counter}`;
-    add({ type: "message", message: { role: "assistant", content: [{ type: "toolCall", id, name: "read", arguments: { path } }] } });
-    add({ type: "message", message: { role: "toolResult", toolCallId: id, toolName: "read", content: [], isError } });
+    add({
+      type: "message",
+      message: {
+        role: "assistant",
+        content: [{ type: "toolCall", id, name: "read", arguments: { path } }],
+      },
+    });
+    add({
+      type: "message",
+      message: { role: "toolResult", toolCallId: id, toolName: "read", content: [], isError },
+    });
   };
   const readViaBash = (): void =>
     add({
@@ -24,7 +39,12 @@ function chain() {
       message: {
         role: "assistant",
         content: [
-          { type: "toolCall", id: "b1", name: "bash", arguments: { command: "cat /skills/bashed/SKILL.md" } },
+          {
+            type: "toolCall",
+            id: "b1",
+            name: "bash",
+            arguments: { command: "cat /skills/bashed/SKILL.md" },
+          },
         ],
       },
     });
@@ -67,7 +87,9 @@ describe("skillsInContext", () => {
 
   it("keeps trailing task arguments on a skill expansion from hiding the skill", () => {
     const c = chain();
-    c.user('<skill name="review" location="/skills/review/SKILL.md">\nbody\n</skill>\n\nreview the auth code');
+    c.user(
+      '<skill name="review" location="/skills/review/SKILL.md">\nbody\n</skill>\n\nreview the auth code',
+    );
     expect(skillsInContext(c.entries, CWD)).toEqual(new Set(["/skills/review/SKILL.md"]));
   });
 
@@ -88,14 +110,23 @@ describe("skillsInContext", () => {
         parentId: null,
         timestamp: "",
         type: "message",
-        message: { role: "assistant", content: [{ type: "toolCall", id: "t1", name: "read", arguments: {} }] },
+        message: {
+          role: "assistant",
+          content: [{ type: "toolCall", id: "t1", name: "read", arguments: {} }],
+        },
       },
       {
         id: "e2",
         parentId: "e1",
         timestamp: "",
         type: "message",
-        message: { role: "toolResult", toolCallId: "t1", toolName: "read", content: [], isError: false },
+        message: {
+          role: "toolResult",
+          toolCallId: "t1",
+          toolName: "read",
+          content: [],
+          isError: false,
+        },
       },
     ] as unknown as SessionEntry[];
     expect(skillsInContext(entries, CWD).size).toBe(0);
@@ -107,7 +138,10 @@ describe("skillsInContext", () => {
     const entries = c.entries.map((entry) => {
       if (entry.type !== "message" || entry.message.role !== "user") return entry;
       const text = entry.message.content as string;
-      return { ...entry, message: { ...entry.message, content: [{ type: "text", text }] } } as SessionEntry;
+      return {
+        ...entry,
+        message: { ...entry.message, content: [{ type: "text", text }] },
+      } as SessionEntry;
     });
     expect(skillsInContext(entries, CWD)).toEqual(new Set(["/skills/review/SKILL.md"]));
   });

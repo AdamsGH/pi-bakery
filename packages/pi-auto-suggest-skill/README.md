@@ -23,19 +23,19 @@ Needs a credential for at least one classifier provider: `TYPESAFE_API_KEY`, `OP
 
 ## Commands
 
-| Command                      | Description                                                             |
-| ---------------------------- | ----------------------------------------------------------------------- |
-| `/auto-suggest-skill:status` | Decision statistics for this session and all time, plus the last round   |
+| Command                      | Description                                                            |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| `/auto-suggest-skill:status` | Decision statistics for this session and all time, plus the last round |
 
 ## Configuration
 
 One JSON file, read from the global agent directory and overridden per key by a trusted project
 file. Neither file is required.
 
-| Path                                    | Scope                     |
-| --------------------------------------- | ------------------------- |
-| `<agent-dir>/auto-suggest-skill.json`   | Global (`~/.pi/agent`)    |
-| `.pi/auto-suggest-skill.json`           | Project, only once trusted |
+| Path                                  | Scope                      |
+| ------------------------------------- | -------------------------- |
+| `<agent-dir>/auto-suggest-skill.json` | Global (`~/.pi/agent`)     |
+| `.pi/auto-suggest-skill.json`         | Project, only once trusted |
 
 ```json
 {
@@ -48,14 +48,14 @@ file. Neither file is required.
 }
 ```
 
-| Key              | Default                                             | Meaning                                                                                                                        |
-| ---------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `model.prefer`   | `typesafe/jev-latest`, `openrouter/~typesafe/jev-latest` | Classifier model IDs to try in order. Entries without credentials, or whose context window cannot hold the roster, are skipped. |
-| `threshold`      | `0.3`                                               | The gate: the mean oriented score below which no skill is suggested at all. Raise it to speak less often.                       |
-| `neverSuggest`   | `[]`                                                | Skill names never suggested. Removed from the roster before routing.                                                            |
-| `alwaysSuggest`  | `[]`                                                | Skill names suggested immediately, in order, skipping the decision call entirely.                                               |
-| `enabled`        | `true`                                              | Off switch. When false, Pi's skill list is left alone.                                                                          |
-| `debugLog`       | `null`                                              | A file path. One JSON line per decision call: model, stage, latency, tokens, outcome. Never the prompt.                          |
+| Key             | Default                                                  | Meaning                                                                                                                         |
+| --------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `model.prefer`  | `typesafe/jev-latest`, `openrouter/~typesafe/jev-latest` | Classifier model IDs to try in order. Entries without credentials, or whose context window cannot hold the roster, are skipped. |
+| `threshold`     | `0.3`                                                    | The gate: the mean oriented score below which no skill is suggested at all. Raise it to speak less often.                       |
+| `neverSuggest`  | `[]`                                                     | Skill names never suggested. Removed from the roster before routing.                                                            |
+| `alwaysSuggest` | `[]`                                                     | Skill names suggested immediately, in order, skipping the decision call entirely.                                               |
+| `enabled`       | `true`                                                   | Off switch. When false, Pi's skill list is left alone.                                                                          |
+| `debugLog`      | `null`                                                   | A file path. One JSON line per decision call: model, stage, latency, tokens, outcome. Never the prompt.                         |
 
 A model ID is `provider/id` and is split on the first slash, because IDs contain slashes:
 `openrouter/typesafe/jev-1.13` is provider `openrouter` with ID `typesafe/jev-1.13`.

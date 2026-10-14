@@ -41,7 +41,10 @@ const CHOICE_INSTRUCTIONS =
  * A's three gate questions. `prose_suffices` is inverted: a high answer means no skill is needed.
  * Each `criteria` restates the question's polarity, since Pi's `bool` question requires them.
  */
-const GATE_QUESTIONS: Record<string, { instructions: string; criteria: { true: string; false: string } }> = {
+const GATE_QUESTIONS: Record<
+  string,
+  { instructions: string; criteria: { true: string; false: string } }
+> = {
   acts_on_user_system: {
     instructions:
       "Is the assistant being asked to act on the user's files, accounts, devices, or online services, rather than only to explain or advise?",
@@ -117,7 +120,8 @@ export function chunkRoster<T>(items: readonly T[], size: number): T[][] {
   if (size > MAX_CHOICES) throw new Error(`chunk size ${size} exceeds the API cap ${MAX_CHOICES}`);
   if (items.length === 0) return [[]];
   const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+  for (let index = 0; index < items.length; index += size)
+    chunks.push(items.slice(index, index + size));
   return chunks;
 }
 
@@ -129,7 +133,10 @@ function boolValue(answers: Record<string, { type: string }>, key: string): numb
 async function skillExcerpt(skill: RosterSkill, chars: number): Promise<string> {
   try {
     const raw = await readFile(skill.filePath, "utf8");
-    return raw.replace(/^---[\s\S]*?---\s*/, "").trim().slice(0, chars);
+    return raw
+      .replace(/^---[\s\S]*?---\s*/, "")
+      .trim()
+      .slice(0, chars);
   } catch {
     return "";
   }
@@ -268,7 +275,9 @@ export async function rerank(
   const criteria: Record<string, string> = {
     [NONE_OPTION]: "None of these skills fit the request.",
   };
-  const excerpts = await Promise.all(names.map((name) => skillExcerpt(byName.get(name)!, EXCERPT_CHARS)));
+  const excerpts = await Promise.all(
+    names.map((name) => skillExcerpt(byName.get(name)!, EXCERPT_CHARS)),
+  );
   for (let index = 0; index < names.length; index++) {
     const name = names[index]!;
     const skill = byName.get(name)!;
@@ -341,11 +350,14 @@ export async function suggest(
 
   const winnerFits = second.fits[second.winner] ?? 0;
   if (winnerFits < FITS_THRESHOLD) {
-    return none(`winner ${second.winner} fits ${winnerFits.toFixed(2)} < ${FITS_THRESHOLD.toFixed(2)}`, {
-      gate: wide.gate,
-      shortlist: wide.shortlist,
-      fits: second.fits,
-    });
+    return none(
+      `winner ${second.winner} fits ${winnerFits.toFixed(2)} < ${FITS_THRESHOLD.toFixed(2)}`,
+      {
+        gate: wide.gate,
+        shortlist: wide.shortlist,
+        fits: second.fits,
+      },
+    );
   }
 
   const skill = byName.get(second.winner)!;

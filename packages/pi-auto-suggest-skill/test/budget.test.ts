@@ -55,7 +55,12 @@ describe("estimatePayload", () => {
   it("reports the larger of the two stages, since that is what must fit", () => {
     const estimate = estimatePayload(realisticRoster(), "x y z w");
     expect(estimate.totalTokens).toBe(
-      Math.ceil(Math.max(estimate.rosterTokens + estimate.taskTokens, estimate.rerankTokens + estimate.taskTokens)),
+      Math.ceil(
+        Math.max(
+          estimate.rosterTokens + estimate.taskTokens,
+          estimate.rerankTokens + estimate.taskTokens,
+        ),
+      ),
     );
   });
 
@@ -73,7 +78,9 @@ describe("estimatePayload", () => {
 
   it("sizes the rerank stage from the configured excerpt length and shortlist size", () => {
     const estimate = estimatePayload([], "");
-    expect(estimate.rerankTokens).toBe(Math.ceil(SHORTLIST_SIZE * estimateTokens("x".repeat(EXCERPT_CHARS))));
+    expect(estimate.rerankTokens).toBe(
+      Math.ceil(SHORTLIST_SIZE * estimateTokens("x".repeat(EXCERPT_CHARS))),
+    );
   });
 
   it("still has a floor from the rerank stage when there is no roster and no task", () => {
@@ -81,7 +88,9 @@ describe("estimatePayload", () => {
     const estimate = estimatePayload([], "");
     expect(estimate.rosterTokens).toBe(0);
     expect(estimate.taskTokens).toBe(0);
-    expect(estimate.totalTokens).toBe(Math.ceil(SHORTLIST_SIZE * estimateTokens("x".repeat(EXCERPT_CHARS))));
+    expect(estimate.totalTokens).toBe(
+      Math.ceil(SHORTLIST_SIZE * estimateTokens("x".repeat(EXCERPT_CHARS))),
+    );
   });
 });
 

@@ -41,7 +41,10 @@ describe("applyRound", () => {
   it("counts rounds, calls and outcomes separately", () => {
     const tally = emptyTally();
     applyRound(tally, round({ outcome: "suggested" }));
-    applyRound(tally, round({ outcome: "none", latencyMs: 300, costUsd: 0.0008, inputTokens: 5000 }));
+    applyRound(
+      tally,
+      round({ outcome: "none", latencyMs: 300, costUsd: 0.0008, inputTokens: 5000 }),
+    );
     applyRound(tally, round({ outcome: "failed", latencyMs: 900, costUsd: null, inputTokens: 0 }));
     expect(tally.rounds).toBe(3);
     expect(tally.apiCalls).toBe(6);
@@ -61,7 +64,17 @@ describe("applyRound", () => {
 
   it("counts a round that made no API call, such as an alwaysSuggest override", () => {
     const tally = emptyTally();
-    applyRound(tally, round({ apiCalls: 0, rankCalls: 0, rerankCalls: 0, inputTokens: 0, costUsd: 0, latencyMs: 0 }));
+    applyRound(
+      tally,
+      round({
+        apiCalls: 0,
+        rankCalls: 0,
+        rerankCalls: 0,
+        inputTokens: 0,
+        costUsd: 0,
+        latencyMs: 0,
+      }),
+    );
     expect(tally.rounds).toBe(1);
     expect(tally.apiCalls).toBe(0);
     expect(tally.suggested).toBe(1);
@@ -154,7 +167,10 @@ describe("lifetime persistence", () => {
   it("drops non-numeric latencies from a hand-edited file", () => {
     const dir = sandbox();
     const path = join(dir, "stats.json");
-    writeFileSync(path, JSON.stringify({ version: 1, rounds: 1, latencies: [100, "x", null, 200] }));
+    writeFileSync(
+      path,
+      JSON.stringify({ version: 1, rounds: 1, latencies: [100, "x", null, 200] }),
+    );
     expect(readLifetime(path).latencies).toEqual([100, 200]);
   });
 
@@ -170,7 +186,14 @@ describe("appendDebugLog", () => {
   it("appends one JSON line per call and never the prompt", () => {
     const dir = sandbox();
     const path = join(dir, "nested", "debug.log");
-    appendDebugLog(path, { at: 0, stage: "rank", model: "typesafe/jev-latest", latencyMs: 400, inputTokens: 7000, stopReason: "stop" });
+    appendDebugLog(path, {
+      at: 0,
+      stage: "rank",
+      model: "typesafe/jev-latest",
+      latencyMs: 400,
+      inputTokens: 7000,
+      stopReason: "stop",
+    });
     appendDebugLog(path, {
       at: 0,
       stage: "rerank",
@@ -183,7 +206,11 @@ describe("appendDebugLog", () => {
     const lines = readFileSync(path, "utf8").trim().split("\n");
     expect(lines).toHaveLength(2);
     const first = JSON.parse(lines[0]!) as Record<string, unknown>;
-    expect(first).toMatchObject({ stage: "rank", model: "typesafe/jev-latest", stopReason: "stop" });
+    expect(first).toMatchObject({
+      stage: "rank",
+      model: "typesafe/jev-latest",
+      stopReason: "stop",
+    });
     expect(JSON.parse(lines[1]!)).toMatchObject({ stage: "rerank", errorCode: "auth" });
     expect(Object.keys(first)).not.toContain("prompt");
   });
@@ -204,8 +231,12 @@ describe("appendDebugLog", () => {
 
 describe("outcomeFor", () => {
   it("labels a round by whether it chose a skill", () => {
-    expect(outcomeFor({ skill: "a", location: "/a", reason: "", gate: 1, shortlist: [], fits: {} })).toBe("suggested");
-    expect(outcomeFor({ skill: null, location: null, reason: "", gate: 0, shortlist: [], fits: {} })).toBe("none");
+    expect(
+      outcomeFor({ skill: "a", location: "/a", reason: "", gate: 1, shortlist: [], fits: {} }),
+    ).toBe("suggested");
+    expect(
+      outcomeFor({ skill: null, location: null, reason: "", gate: 0, shortlist: [], fits: {} }),
+    ).toBe("none");
   });
 });
 
@@ -310,7 +341,12 @@ describe("renderStatus", () => {
 
   it("says so when nothing has run yet", () => {
     const text = renderStatus(
-      input({ session: emptyTally(), lifetime: emptyLifetime(1), last: null, lastSkip: "no-reader" }),
+      input({
+        session: emptyTally(),
+        lifetime: emptyLifetime(1),
+        last: null,
+        lastSkip: "no-reader",
+      }),
     );
     expect(text).toContain("(none yet this session)");
     expect(text).toContain("skipped    no-reader");
@@ -332,7 +368,9 @@ describe("renderStatus", () => {
   });
 
   it("surfaces a config error", () => {
-    const text = renderStatus(input({ last: null, configError: "could not read /agent/auto-suggest-skill.json" }));
+    const text = renderStatus(
+      input({ last: null, configError: "could not read /agent/auto-suggest-skill.json" }),
+    );
     expect(text).toContain("could not read");
   });
 
