@@ -106,13 +106,13 @@ describe("prompt constants", () => {
   });
 
   it("names the missing roster and what to do with a recommendation", () => {
-    expect(GUIDANCE).toContain("Skills are not listed in this prompt");
+    expect(GUIDANCE).toContain("Skills are not listed here");
     expect(GUIDANCE).toContain("read its file and follow it");
   });
 
-  it("stays short enough to be worth injecting on every turn", () => {
-    // The verbose form this replaced ran to ~200 characters and ~45 words.
-    expect(GUIDANCE.length).toBeLessThan(140);
-    expect(GUIDANCE.split(/\s+/).length).toBeLessThan(30);
+  it("stays under the budget AGENTS.md sets for prompt sections", () => {
+    // A's original ran to ~200 characters and ~45 words; the first cut of this one to 116 and 21.
+    expect(GUIDANCE.length).toBeLessThan(100);
+    expect(GUIDANCE.split(/\s+/).length).toBeLessThan(20);
   });
 });

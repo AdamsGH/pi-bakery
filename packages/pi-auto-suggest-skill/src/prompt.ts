@@ -18,12 +18,13 @@ export const GUIDANCE_SECTION = "skill_routing";
 
 /**
  * A's `onPrompt` guidance, minus its markdown heading: the section tag already supplies one.
- * Shortened from A's wording, which spent a sentence on a recommendation not arriving — the absence
- * states that itself. Two facts remain: there is no roster here, and what to do with one.
+ *
+ * Shortened twice from A's wording, which spent a sentence on a recommendation not arriving — the
+ * absence states that itself. Two facts remain: there is no roster here, and what to do with one.
+ * "Skill recommendation" is the injected message's own term, so the model can match them.
  */
 export const GUIDANCE =
-  "Skills are not listed in this prompt. If a skill recommendation arrives with this turn, read " +
-  "its file and follow it.";
+  "Skills are not listed here. If a skill recommendation arrives, read its file and follow it.";
 
 /**
  * A prompt that is not a task at all, checked locally so it costs nothing: an empty prompt, a bare
