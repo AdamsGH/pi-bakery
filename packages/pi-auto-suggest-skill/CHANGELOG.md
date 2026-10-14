@@ -12,8 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A prompt of three words or fewer is now routed only when it names an installed skill. A one-word
   prompt that names a skill (`commit`) reaches the decision call and removes Pi's roster instead of
   being ignored, while `hi` and `thanks` still cost nothing.
-- Once a round has removed Pi's roster it stays removed for the rest of the session, instead of a
-  later turn that skips putting it back.
+- Pi's roster is now removed on every turn the extension is enabled for, ahead of every routing
+  gate, instead of only once a routing round had run. It is therefore absent from the session's first
+  request, and a turn that makes no decision call no longer relies on an earlier round having taken it
+  away. `enabled: false` remains the only setting that leaves Pi's prompt as Pi built it.
 - `/auto-suggest-skill:status` opens a styled panel in the TUI — the outcome rates, the unpriced-cost
   caveat and the last round's result each carry their own color — instead of a notification that
   rendered every line in the same dim color. Every other mode still gets the plain notification.

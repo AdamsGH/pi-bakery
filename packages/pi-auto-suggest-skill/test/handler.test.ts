@@ -84,7 +84,9 @@ interface TurnResult {
   result: { message?: { content: string } } | undefined;
 }
 
-function harness(options: { tools?: string[]; sessionId?: string } = {}) {
+function harness(
+  options: { tools?: string[]; sessionId?: string; models?: ClassifierModel<ClassifierApi>[] } = {},
+) {
   const handlers = new Map<string, Array<(event: never, ctx: never) => unknown>>();
   const commands = new Map<string, (args: string, ctx: never) => Promise<void>>();
   const decided: DecisionRequest[] = [];
@@ -99,7 +101,7 @@ function harness(options: { tools?: string[]; sessionId?: string } = {}) {
       buildContextEntries: () => [],
     },
     modelRegistry: {
-      getAvailableOfType: async () => [MODEL],
+      getAvailableOfType: async () => options.models ?? [MODEL],
       classify: async (_model: unknown, request: DecisionRequest) => {
         decided.push(request);
         return {
@@ -151,7 +153,11 @@ function harness(options: { tools?: string[]; sessionId?: string } = {}) {
     async start() {
       await fire("session_start", { type: "session_start" });
     },
-    /** One turn, as Pi fires it: a fresh options object each time, as Pi does. */
+    /**
+     * One turn, as Pi fires it: a fresh options object each time, rebuilt from the base like Pi's
+     * own `emitBeforeAgentStart`. That freshness is the reason the extension strips on every turn
+     * rather than once, so a harness that reused the object across turns would test the wrong thing.
+     */
     async turn(prompt: string): Promise<TurnResult> {
       const systemPromptOptions = {
         cwd: process.cwd(),
@@ -209,13 +215,14 @@ describe("before_agent_start", () => {
     expect(second.skills).toEqual([]);
   });
 
-  it("spends nothing on a short prompt that names no skill, then routes the next turn", async () => {
+  it("spends nothing on a short prompt that names no skill, and still strips", async () => {
     const test = harness();
     await test.start();
 
     const greeting = await test.turn("hi");
 
-    expect(greeting.skills).toEqual(ROSTER);
+    expect(greeting.skills).toEqual([]);
+    expect(greeting.sections[GUIDANCE_SECTION]).toBe(GUIDANCE);
     expect(test.decided).toHaveLength(0);
 
     const next = await test.turn("what does this repo do");
@@ -236,14 +243,14 @@ describe("before_agent_start", () => {
     expect(test.decided).toHaveLength(2);
   });
 
-  it("leaves Pi's roster alone on a first turn it cannot decide", async () => {
+  it("strips on the very first turn even when the turn decides nothing", async () => {
     const test = harness();
     await test.start();
 
     const turn = await test.turn(EXPANSION);
 
-    expect(turn.skills).toEqual(ROSTER);
-    expect(turn.sections[GUIDANCE_SECTION]).toBeUndefined();
+    expect(turn.skills).toEqual([]);
+    expect(turn.sections[GUIDANCE_SECTION]).toBe(GUIDANCE);
     expect(test.decided).toHaveLength(0);
   });
 
@@ -259,13 +266,40 @@ describe("before_agent_start", () => {
     expect(test.notifications.join(" ")).toContain("disabled");
   });
 
-  it("leaves the roster alone when no active tool can load a skill", async () => {
+  it("strips when no active tool can load a skill, and makes no decision call", async () => {
     const test = harness({ tools: ["edit", "write"] });
     await test.start();
 
     const turn = await test.turn("review this diff");
 
-    expect(turn.skills).toEqual(ROSTER);
+    expect(turn.skills).toEqual([]);
+    expect(turn.sections[GUIDANCE_SECTION]).toBe(GUIDANCE);
+    expect(test.decided).toHaveLength(0);
+  });
+
+  it("strips on a turn whose roster neverSuggest leaves empty", async () => {
+    writeFileSync(
+      join(AGENT_DIR, "auto-suggest-skill.json"),
+      '{"neverSuggest": ["commit", "review-code"]}',
+    );
+    const test = harness();
+    await test.start();
+
+    const turn = await test.turn("review this diff");
+
+    expect(turn.skills).toEqual([]);
+    expect(turn.sections[GUIDANCE_SECTION]).toBe(GUIDANCE);
+    expect(test.decided).toHaveLength(0);
+  });
+
+  it("strips on a turn where no classifier model resolves", async () => {
+    const test = harness({ models: [] });
+    await test.start();
+
+    const turn = await test.turn("review this diff");
+
+    expect(turn.skills).toEqual([]);
+    expect(turn.sections[GUIDANCE_SECTION]).toBe(GUIDANCE);
     expect(test.decided).toHaveLength(0);
   });
 

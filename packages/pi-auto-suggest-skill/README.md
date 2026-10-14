@@ -7,8 +7,12 @@ recommendation.
 
 - **Strip** — Pi's `<available_skills>` block is removed, so the roster stops costing context.
 - **Route** — a gate, a wide ranking and a rerank over `SKILL.md` excerpts pick at most one skill.
-- **Fail open** — a session the extension does not handle keeps Pi's own skill list. Once a round
-  has removed the list, it stays removed for the rest of the session.
+- **Fail quiet** — a routing failure costs no context: the roster is already gone and the turn runs
+  with no recommendation, which is what the injected guidance paragraph describes.
+
+The roster comes out on every turn the extension is enabled for, ahead of every routing gate — so it
+is absent from the session's first request, and absent on turns that make no decision call at all.
+`enabled: false` is the only thing that leaves Pi's prompt as Pi built it.
 
 Routing is always on. There is no on-demand tool: the model cannot ask for a skill, it is told.
 
@@ -20,7 +24,8 @@ pi install npm:@normful/pi-auto-suggest-skill
 
 Needs a credential for at least one classifier provider: `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`,
 `CLOUDFLARE_API_KEY` with `CLOUDFLARE_ACCOUNT_ID`, `OPENCODE_API_KEY`, `AI_GATEWAY_API_KEY`, or an
-`openai` API key. Without one, no model resolves and Pi's skill list stays as it is.
+`openai` API key. Without one the roster is still removed, no model resolves, and no
+recommendation is made.
 
 ## Commands
 
@@ -66,7 +71,8 @@ A model ID is `provider/id` and is split on the first slash, because IDs contain
 1. **Cheap local gates.** An empty prompt, a slash command, a `/skill:name` expansion — the user
    already named the skill — and a prompt of three words or fewer that names no installed skill make
    no decision call, so `hi` and `thanks` cost nothing while `commit` routes. A session with neither
-   `read` nor `bash` active is left entirely alone.
+   `read` nor `bash` active can load no skill, so it makes no decision call either. These gates
+   decide only whether the turn routes; the roster is removed before them, on every turn.
 2. **Gate.** Three questions ride in the first ranking call: does the request act on the user's
    system, would an expert consult a documented procedure, and would prose alone suffice (the last
    inverted). Their mean below `threshold` ends the round with no suggestion.
@@ -81,7 +87,8 @@ A skill the model has already read this session is not recommended again.
 
 Every routed turn spends at least one decision call, and a second when the gate passes. A turn that
 skips — a short prompt naming no skill, an empty prompt, a slash command, a `/skill:name` expansion,
-`alwaysSuggest`, a session with no reader, a disabled extension — spends nothing.
+`alwaysSuggest`, a session with no reader — spends nothing. A disabled extension spends nothing and
+changes nothing.
 
 `/auto-suggest-skill:status` reports tokens always, and a dollar figure only when the model has a
 catalog price. Six of the twenty-six shipped classifier models have none — including

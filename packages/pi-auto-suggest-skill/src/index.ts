@@ -8,14 +8,12 @@
  *
  * Shape:
  *   - Routing is always on. There is no on-demand tool: the model cannot ask.
- *   - The roster is removed when a routing round happens, and stays removed for the rest of the
- *     session. The paths that decide nothing — no reader, a disabled switch — leave Pi's prompt
- *     untouched, so a session this extension does not handle keeps Pi's own listing; once a round
- *     has taken it away, a later turn must not put it back, or the prompt would flip between two
- *     shapes and the guidance paragraph already in the transcript would contradict the list next
- *     to it.
+ *   - The roster is removed on every turn the extension is enabled for, ahead of every gate. Pi
+ *     rebuilds `systemPromptOptions` from its own base on each run and discards this event's copy,
+ *     so the removal is not sticky and has to be repeated every turn.
  *   - A failure to decide is not a failure of the turn: the roster stays removed and no
  *     recommendation arrives, which is what A does and what the guidance paragraph describes.
+ *   - The only switch that leaves Pi's prompt as Pi built it is `enabled: false`.
  *
  * Derived from `iamdin/pi-jev-skill-suggestion` (MIT): the strip, the two-stage router, the
  * context dedup and the thresholds are A's. The on-demand tool and the trigger configuration are
@@ -99,8 +97,6 @@ interface SessionState {
   lifetime: LifetimeState;
   /** This session's contributions since the last write, folded into the file on every write. */
   pending: PendingLifetime;
-  /** True once a round has removed Pi's roster, after which no turn restores it. */
-  rosterRemoved: boolean;
   last: RoundRecord | null;
   lastModel: string | null;
   lastRosterSize: number | null;
@@ -123,7 +119,6 @@ export default function (pi: ExtensionAPI) {
       session: emptyTally(),
       lifetime: readLifetime(counterFile),
       pending: emptyPending(),
-      rosterRemoved: false,
       last: null,
       lastModel: null,
       lastRosterSize: null,
@@ -164,21 +159,16 @@ export default function (pi: ExtensionAPI) {
     flush(current);
   }
 
-  /** Remove the roster and describe the new contract. Called only when a round is about to run. */
-  function strip(current: SessionState, event: SystemPromptEvent): void {
+  /**
+   * Remove the roster and describe the new contract. Called on every turn the extension is enabled
+   * for, ahead of every gate, so the roster never costs context even on a turn that decides nothing.
+   *
+   * Idempotent, which is what makes the repetition safe: this event's options copy is the only place
+   * either value can be set, and Pi rebuilds it from its own base on each run.
+   */
+  function strip(event: SystemPromptEvent): void {
     event.systemPromptOptions.skills = [];
     event.systemPromptOptions.sections[GUIDANCE_SECTION] = GUIDANCE;
-    current.rosterRemoved = true;
-  }
-
-  /**
-   * A turn that decides nothing. Pi's list is left alone unless this session already had it removed,
-   * in which case it stays removed: putting it back would churn the prompt cache and contradict the
-   * guidance paragraph sitting in the transcript beside it.
-   */
-  function skipTurn(current: SessionState, event: SystemPromptEvent, reason: SkipReason): void {
-    if (current.rosterRemoved) strip(current, event);
-    skip(current, reason);
   }
 
   pi.on("session_start", async (_event, ctx) => {
@@ -204,20 +194,30 @@ export default function (pi: ExtensionAPI) {
     const current = ensureState(ctx);
     current.lastSkip = null;
 
+    // The one switch that leaves Pi's prompt as Pi built it.
     if (!current.config.enabled) {
       skip(current, "disabled");
       return undefined;
     }
 
-    if (!skillReader(pi.getActiveTools())) {
-      skip(current, "no-reader");
-      return undefined;
-    }
-
+    // Read the roster before stripping it. The strip below empties this event, and every gate past it
+    // still needs the names.
     const roster = toRoster(event.systemPromptOptions.skills);
     const task = event.prompt;
     const excluded = new Set(current.config.neverSuggest);
     const candidates = roster.filter((skill) => !excluded.has(skill.name));
+
+    // Strip ahead of every gate rather than behind them. Pi hands this handler a copy of
+    // `systemPromptOptions` freshly normalized from the session's base options on every run, so the
+    // removal would not stick: leaving it to the routing paths would hand the roster back on every
+    // turn that skips a decision. No hook earlier than this one carries the prompt options, so this
+    // is the earliest the roster can go, and the session's first request is built after it.
+    strip(event);
+
+    if (!skillReader(pi.getActiveTools())) {
+      skip(current, "no-reader");
+      return undefined;
+    }
 
     // Pi expands `/skill:name` before this hook, so the prompt is a skill envelope, not a task.
     if (
@@ -227,7 +227,7 @@ export default function (pi: ExtensionAPI) {
         candidates.map((skill) => skill.name),
       )
     ) {
-      skipTurn(current, event, "trivial");
+      skip(current, "trivial");
       return undefined;
     }
 
@@ -245,7 +245,6 @@ export default function (pi: ExtensionAPI) {
         shortlist: [],
         fits: {},
       };
-      strip(current, event);
       commitRound(current, {
         at: Date.now(),
         outcome: "suggested",
@@ -266,7 +265,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (candidates.length === 0) {
-      skipTurn(current, event, "no-candidates");
+      skip(current, "no-candidates");
       return undefined;
     }
 
@@ -279,13 +278,10 @@ export default function (pi: ExtensionAPI) {
     });
     if (!isResolvedModel(resolution)) {
       current.modelError = resolution.error;
-      skipTurn(current, event, "no-model");
+      skip(current, "no-model");
       return undefined;
     }
     current.modelError = null;
-
-    // Every gate above passed, so this turn has a routing decision: remove the roster now.
-    strip(current, event);
 
     const model: ClassifierModel<ClassifierApi> = resolution.model;
     const modelLabel = `${model.provider}/${model.id}`;
