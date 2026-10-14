@@ -55,6 +55,28 @@ import type { BetterleaksFinding } from "./types.js"; // resolves to src/types.t
 
 This applies to all relative imports in both `src/` and `test/` files. Do not use extensionless imports (`"./cache"`) — they will fail at runtime under jiti.
 
+## Text the model reads
+
+Every string an extension injects into the agent's own prompt — a tool `description`, a parameter
+`description`, a prompt section, an appended system prompt, a guideline bullet — rides along on
+every request of the session. Write the shortest text that still changes what the model does.
+
+- **Budget.** Any model-facing string stays under 100 characters and 20 words, and a tool description
+  is one sentence. Treat both as ceilings rather than targets.
+- **Cut what the model can infer.** That a missing value means nothing was found, that the payload it
+  was handed should be followed, that a tool is a tool — none of it earns its tokens. The worked
+  target is `packages/pi-auto-suggest-skill/src/prompt.ts`, whose length is held by a tripwire in
+  `packages/pi-auto-suggest-skill/test/prompt.test.ts`.
+- **Do not restate what the host renders.** A prompt section's tag is already its heading; do not
+  write one.
+- **Say what to do, not what the thing is.** `ALWAYS use this tool to ask user questions`, not a
+  description of the tool's mechanics.
+- **Scope.** This governs the agent's prompt. Command and shortcut `description` fields are UI text
+  for autocomplete and help — Pi never renders them into the prompt — and a prompt an extension sends
+  to a model it drives itself answers to that call's own budget: `packages/pi-auto-name/src/locales.ts`
+  and its `*SystemPrompt` tables are that case. Code comments, README and CHANGELOG keep their detail
+  too; no reader pays for those per request.
+
 ## Common commands
 
 ```bash
