@@ -12,7 +12,9 @@ recommendation.
 
 The roster comes out on every turn the extension is enabled for, ahead of every routing gate — so it
 is absent from the session's first request, and absent on turns that make no decision call at all.
-`enabled: false` is the only thing that leaves Pi's prompt as Pi built it.
+A one-line `<skill_routing>` paragraph replaces it, unless no active tool can open a skill file, in
+which case there is nothing to describe. `enabled: false` is the only thing that leaves Pi's prompt
+as Pi built it.
 
 Routing is always on. There is no on-demand tool: the model cannot ask for a skill, it is told.
 
@@ -71,8 +73,9 @@ A model ID is `provider/id` and is split on the first slash, because IDs contain
 1. **Cheap local gates.** An empty prompt, a slash command, a `/skill:name` expansion — the user
    already named the skill — and a prompt of three words or fewer that names no installed skill make
    no decision call, so `hi` and `thanks` cost nothing while `commit` routes. A session with neither
-   `read` nor `bash` active can load no skill, so it makes no decision call either. These gates
-   decide only whether the turn routes; the roster is removed before them, on every turn.
+   `read` nor `bash` active can load no skill at all: it makes no decision call, and Pi omits the
+   roster itself. These gates decide only whether the turn routes; the roster is removed before them,
+   on every turn.
 2. **Gate.** Three questions ride in the first ranking call: does the request act on the user's
    system, would an expert consult a documented procedure, and would prose alone suffice (the last
    inverted). Their mean below `threshold` ends the round with no suggestion.

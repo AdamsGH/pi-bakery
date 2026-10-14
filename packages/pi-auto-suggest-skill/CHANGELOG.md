@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A prompt of three words or fewer is now routed only when it names an installed skill. A one-word
   prompt that names a skill (`commit`) reaches the decision call and removes Pi's roster instead of
   being ignored, while `hi` and `thanks` still cost nothing.
+- The `<skill_routing>` guidance is one sentence shorter. It no longer spells out the
+  no-recommendation case, which the absence of a recommendation states itself.
+- A session with no active tool that can open a skill file no longer gets the `<skill_routing>`
+  paragraph, only the roster removed. Pi omits that roster itself in such a session, so there was
+  nothing to describe and the paragraph advertised a recommendation that could never be delivered.
 - Pi's roster is now removed on every turn the extension is enabled for, ahead of every routing
   gate, instead of only once a routing round had run. It is therefore absent from the session's first
   request, and a turn that makes no decision call no longer relies on an earlier round having taken it

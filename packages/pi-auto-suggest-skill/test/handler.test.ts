@@ -266,14 +266,14 @@ describe("before_agent_start", () => {
     expect(test.notifications.join(" ")).toContain("disabled");
   });
 
-  it("strips when no active tool can load a skill, and makes no decision call", async () => {
+  it("clears the roster but adds no guidance when no active tool can load a skill", async () => {
     const test = harness({ tools: ["edit", "write"] });
     await test.start();
 
     const turn = await test.turn("review this diff");
 
     expect(turn.skills).toEqual([]);
-    expect(turn.sections[GUIDANCE_SECTION]).toBe(GUIDANCE);
+    expect(turn.sections[GUIDANCE_SECTION]).toBeUndefined();
     expect(test.decided).toHaveLength(0);
   });
 

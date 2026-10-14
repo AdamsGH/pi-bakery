@@ -160,15 +160,20 @@ export default function (pi: ExtensionAPI) {
   }
 
   /**
-   * Remove the roster and describe the new contract. Called on every turn the extension is enabled
-   * for, ahead of every gate, so the roster never costs context even on a turn that decides nothing.
+   * Remove the roster, and describe what replaced it only when a skill could actually arrive. Called
+   * on every turn the extension is enabled for, ahead of every gate, so the roster never costs
+   * context even on a turn that decides nothing.
    *
    * Idempotent, which is what makes the repetition safe: this event's options copy is the only place
    * either value can be set, and Pi rebuilds it from its own base on each run.
+   *
+   * `reader` is false when no active tool can open a skill file. Pi omits the roster itself in that
+   * session, so there is nothing to describe, and the guidance paragraph alone would advertise a
+   * recommendation that could never be delivered.
    */
-  function strip(event: SystemPromptEvent): void {
+  function strip(event: SystemPromptEvent, reader: boolean): void {
     event.systemPromptOptions.skills = [];
-    event.systemPromptOptions.sections[GUIDANCE_SECTION] = GUIDANCE;
+    if (reader) event.systemPromptOptions.sections[GUIDANCE_SECTION] = GUIDANCE;
   }
 
   pi.on("session_start", async (_event, ctx) => {
@@ -207,14 +212,16 @@ export default function (pi: ExtensionAPI) {
     const excluded = new Set(current.config.neverSuggest);
     const candidates = roster.filter((skill) => !excluded.has(skill.name));
 
+    const reader = skillReader(pi.getActiveTools());
+
     // Strip ahead of every gate rather than behind them. Pi hands this handler a copy of
     // `systemPromptOptions` freshly normalized from the session's base options on every run, so the
     // removal would not stick: leaving it to the routing paths would hand the roster back on every
     // turn that skips a decision. No hook earlier than this one carries the prompt options, so this
     // is the earliest the roster can go, and the session's first request is built after it.
-    strip(event);
+    strip(event, reader !== undefined);
 
-    if (!skillReader(pi.getActiveTools())) {
+    if (!reader) {
       skip(current, "no-reader");
       return undefined;
     }
