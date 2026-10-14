@@ -508,16 +508,36 @@ describe("renderStatus", () => {
 describe("renderStatusStyled", () => {
   /** A painter that writes the color of a span into the text, so a test can assert on it. */
   const marker: Painter = (color, text) => `<${color}>${text}</${color}>`;
-  /** The color a row's value spans carry, with the markup stripped from the label column. */
+
+  /**
+   * Every span a painter can be handed, mirroring `StatusColor`. `unmark` walks this list rather
+   * than matching markup with a regex: the regex form reads to a scanner as an incomplete HTML
+   * sanitizer, and this form is exhaustive because `Painter` takes nothing else. A token added to
+   * `StatusColor` and used makes `unmark` leave its markup behind, failing the equivalence test
+   * below until it is listed here.
+   */
+  const TOKENS = ["title", "label", "value", "quiet", "good", "bad", "warn"] as const;
+
+  /** The report with the marker's markup removed. */
+  const unmark = (text: string): string =>
+    TOKENS.reduce(
+      (bare, token) => bare.split(`<${token}>`).join("").split(`</${token}>`).join(""),
+      text,
+    );
+
+  /** The row for a label, found from the label span itself.
+   *
+   * Labels are painted as the very first span of a row, after the two-space indent, so the markup
+   * identifies the row without anything having to be removed from it.
+   */
   const rowOf = (styled: string[], label: string): string =>
-    styled.find((line) => strip(line).startsWith(`  ${label}`))!;
-  const strip = (text: string): string => text.replace(/<\/?[a-z]+>/g, "");
+    styled.find((line) => line.startsWith(`  <label>${label}`))!;
 
   const styled = (overrides: Partial<StatusInput> = {}): string[] =>
     renderStatusStyled(input(overrides), marker);
 
   it("is the plain report with color added", () => {
-    expect(strip(styled().join("\n"))).toBe(renderStatus(input()));
+    expect(unmark(styled().join("\n"))).toBe(renderStatus(input()));
     expect(renderStatusStyled(input(), PLAIN)).toEqual(renderStatus(input()).split("\n"));
   });
 
