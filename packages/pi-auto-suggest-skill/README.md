@@ -63,9 +63,10 @@ A model ID is `provider/id` and is split on the first slash, because IDs contain
 
 ## How it decides
 
-1. **Cheap local gates.** An empty prompt, a slash command, or a `/skill:name` expansion — the user
-   already named the skill — makes no decision call. Prompt length is not a gate: one word is enough
-   to name a skill. A session with neither `read` nor `bash` active is left entirely alone.
+1. **Cheap local gates.** An empty prompt, a slash command, a `/skill:name` expansion — the user
+   already named the skill — and a prompt of three words or fewer that names no installed skill make
+   no decision call, so `hi` and `thanks` cost nothing while `commit` routes. A session with neither
+   `read` nor `bash` active is left entirely alone.
 2. **Gate.** Three questions ride in the first ranking call: does the request act on the user's
    system, would an expert consult a documented procedure, and would prose alone suffice (the last
    inverted). Their mean below `threshold` ends the round with no suggestion.
@@ -78,9 +79,9 @@ A skill the model has already read this session is not recommended again.
 
 ## Cost
 
-Every routed turn spends at least one decision call, and a second when the gate passes. Only a turn
-that skips — an empty prompt, a slash command, a `/skill:name` expansion, `alwaysSuggest`, a
-session with no reader, a disabled extension — spends nothing.
+Every routed turn spends at least one decision call, and a second when the gate passes. A turn that
+skips — a short prompt naming no skill, an empty prompt, a slash command, a `/skill:name` expansion,
+`alwaysSuggest`, a session with no reader, a disabled extension — spends nothing.
 
 `/auto-suggest-skill:status` reports tokens always, and a dollar figure only when the model has a
 catalog price. Six of the twenty-six shipped classifier models have none — including

@@ -203,9 +203,17 @@ export default function (pi: ExtensionAPI) {
 
     const roster = toRoster(event.systemPromptOptions.skills);
     const task = event.prompt;
+    const excluded = new Set(current.config.neverSuggest);
+    const candidates = roster.filter((skill) => !excluded.has(skill.name));
 
     // Pi expands `/skill:name` before this hook, so the prompt is a skill envelope, not a task.
-    if (isSkillExpansion(task) || trivialTurn(task)) {
+    if (
+      isSkillExpansion(task) ||
+      trivialTurn(
+        task,
+        candidates.map((skill) => skill.name),
+      )
+    ) {
       skipTurn(current, event, "trivial");
       return undefined;
     }
@@ -244,8 +252,6 @@ export default function (pi: ExtensionAPI) {
       return { message: messageFor(suggestion) };
     }
 
-    const excluded = new Set(current.config.neverSuggest);
-    const candidates = roster.filter((skill) => !excluded.has(skill.name));
     if (candidates.length === 0) {
       skipTurn(current, event, "no-candidates");
       return undefined;

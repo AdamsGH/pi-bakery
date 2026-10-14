@@ -26,15 +26,39 @@ export const GUIDANCE =
   "file and follow it. If none is present, continue without a skill.";
 
 /**
- * Prompts that are not a task at all, checked locally so they cost nothing: an empty prompt and a
- * bare slash command. A word count is deliberately not a gate — a one-word prompt is the strongest
- * routing signal there is when it names a skill (`commit`), and skipping short prompts left both
- * the roster and the decision call behind on a turn the user considered a turn.
+ * A prompt that is not a task at all, checked locally so it costs nothing: an empty prompt, a bare
+ * slash command, and a prompt of three words or fewer that names no installed skill.
+ *
+ * The word count is a gate on cost, not on length: `hi` and `thanks` should not buy a decision call.
+ * Naming a skill is the strongest routing signal there is, though, so a short prompt that contains
+ * one — `commit`, `please commit` — routes. Adapted from D's `trivialTurn`, which measured the
+ * word count.
  */
-export function trivialTurn(text: string): boolean {
+export function trivialTurn(text: string, skillNames: Iterable<string> = []): boolean {
   const trimmed = String(text ?? "").trim();
   if (!trimmed) return true;
-  return trimmed.startsWith("/");
+  if (trimmed.startsWith("/")) return true;
+  if (trimmed.split(/\s+/).length > SHORT_PROMPT_WORDS) return false;
+  return !namesASkill(trimmed, skillNames);
+}
+
+/** How many words or fewer a prompt may have before it must name a skill to be routed. */
+export const SHORT_PROMPT_WORDS = 3;
+
+/**
+ * Whether the prompt contains one of these skill names as a whole word. A name is not found inside a
+ * longer word — `digital` does not name a skill called `git` — but `commit-this` names `commit`.
+ */
+function namesASkill(text: string, skillNames: Iterable<string>): boolean {
+  for (const name of skillNames) {
+    const skill = String(name ?? "").trim();
+    if (!skill) continue;
+    const escaped = skill.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    if (new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`, "iu").test(text)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

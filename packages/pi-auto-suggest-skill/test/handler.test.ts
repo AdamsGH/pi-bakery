@@ -185,15 +185,31 @@ describe("before_agent_start", () => {
     expect(turn.result?.message?.content).toContain("commit");
   });
 
-  it("decides again on the next turn, not only the first", async () => {
+  it("routes a one-word prompt that names a skill, and again on the next turn", async () => {
     const test = harness();
     await test.start();
 
-    await test.turn("hi");
+    const first = await test.turn("commit");
     const second = await test.turn("what does this repo do");
 
     expect(test.decided).toHaveLength(4);
+    expect(first.skills).toEqual([]);
     expect(second.skills).toEqual([]);
+  });
+
+  it("spends nothing on a short prompt that names no skill, then routes the next turn", async () => {
+    const test = harness();
+    await test.start();
+
+    const greeting = await test.turn("hi");
+
+    expect(greeting.skills).toEqual(ROSTER);
+    expect(test.decided).toHaveLength(0);
+
+    const next = await test.turn("what does this repo do");
+
+    expect(next.skills).toEqual([]);
+    expect(test.decided).toHaveLength(2);
   });
 
   it("keeps the roster removed on a turn it cannot decide", async () => {

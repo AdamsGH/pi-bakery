@@ -9,26 +9,47 @@ import {
 import type { Suggestion } from "../src/types.js";
 
 describe("trivialTurn", () => {
+  const names = ["commit", "review-code", "writing-subagent-workflows"];
+
   it("skips an empty or whitespace-only prompt", () => {
-    expect(trivialTurn("")).toBe(true);
-    expect(trivialTurn("   \n ")).toBe(true);
+    expect(trivialTurn("", names)).toBe(true);
+    expect(trivialTurn("   \n ", names)).toBe(true);
   });
 
   it("skips a slash command, which is not a task", () => {
-    expect(trivialTurn("/auto-suggest-skill:status")).toBe(true);
-    expect(trivialTurn("/compact")).toBe(true);
+    expect(trivialTurn("/auto-suggest-skill:status", names)).toBe(true);
+    expect(trivialTurn("/compact", names)).toBe(true);
   });
 
-  it("routes a short prompt, because a one-word prompt can name a skill", () => {
-    expect(trivialTurn("thanks")).toBe(false);
-    expect(trivialTurn("commit")).toBe(false);
-    expect(trivialTurn("fix the bug")).toBe(false);
-    expect(trivialTurn("what is 2+2?")).toBe(false);
+  it("skips a short prompt that names no skill, so a greeting costs nothing", () => {
+    expect(trivialTurn("hi", names)).toBe(true);
+    expect(trivialTurn("thanks", names)).toBe(true);
+    expect(trivialTurn("fix the bug", names)).toBe(true);
   });
 
-  it("routes prompts of any length", () => {
-    expect(trivialTurn("please review this diff")).toBe(false);
-    expect(trivialTurn("create a short pitch deck as pptx")).toBe(false);
+  it("routes a short prompt that names a skill", () => {
+    expect(trivialTurn("commit", names)).toBe(false);
+    expect(trivialTurn("please commit", names)).toBe(false);
+    expect(trivialTurn("run writing-subagent-workflows", names)).toBe(false);
+  });
+
+  it("routes any long prompt, whether or not it names a skill", () => {
+    expect(trivialTurn("please review this diff", names)).toBe(false);
+    expect(trivialTurn("create a short pitch deck as pptx", names)).toBe(false);
+  });
+
+  it("does not find a name inside a longer word", () => {
+    expect(trivialTurn("digital", ["git"])).toBe(true);
+    expect(trivialTurn("commit", ["committed"])).toBe(true);
+  });
+
+  it("counts words on whitespace runs, not characters", () => {
+    expect(trivialTurn("a   b   c")).toBe(true);
+    expect(trivialTurn("a   b   c   d")).toBe(false);
+  });
+
+  it("treats a missing skill list as no names at all", () => {
+    expect(trivialTurn("commit")).toBe(true);
   });
 });
 

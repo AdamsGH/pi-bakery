@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- A prompt's length is no longer a gate. Every turn that is not an empty prompt, a slash command or a
-  `/skill:name` expansion now makes a decision call and removes Pi's roster, so a one-word prompt
-  that names a skill (`commit`) is routed instead of ignored.
+- A prompt of three words or fewer is now routed only when it names an installed skill. A one-word
+  prompt that names a skill (`commit`) reaches the decision call and removes Pi's roster instead of
+  being ignored, while `hi` and `thanks` still cost nothing.
 - Once a round has removed Pi's roster it stays removed for the rest of the session, instead of a
   later turn that skips putting it back.
 
