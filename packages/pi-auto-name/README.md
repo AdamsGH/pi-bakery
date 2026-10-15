@@ -37,9 +37,17 @@ pi install npm:@normful/pi-auto-name
 
 ## Usage
 
-The extension is fully automatic; there is nothing to run.
+Naming runs automatically. Run `/rename` without arguments to regenerate names
+from the current conversation using the same configuration, even after the initial
+rename or when periodic re-renaming is off.
 
-Configure it once, and that's it. Set it and forget it.
+The command respects `enabled`, `replaceExistingName`, `respectExternalRenames`,
+and the configured surfaces. It reports why a rename was skipped or failed.
+Run it when the agent is idle; it will not start a second naming request while
+another is in progress. Manual requests do not increment or reset the automatic
+turn counter. Configuration changes still require `/reload`.
+
+Use Pi's `/name` command to set a literal name. `/rename` does not accept arguments.
 
 ## How It Works
 
@@ -147,6 +155,7 @@ the session transcript and render them in the TUI. (The debug entries are not se
 
 This extension is inspired by several other similar extensions:
 
+- The manual `/rename` trigger is inspired by [pi-session-rename](https://github.com/Mieluoxxx/pi-ext/tree/main/extensions/pi-session-rename).
 - <https://github.com/ssdiwu/pi-autoname>
 - <https://github.com/byteowlz/pi-agent-extensions/tree/main/pi-auto-rename>
 - <https://github.com/mkioutcc/pi-title-renamer>
