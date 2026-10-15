@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Optional `namingCase: "sentence"` for natural-style names, preserving Title Case by default.
+- `customInstructions` to supplement the naming model's system prompt without replacing built-in context or response formatting.
+
 ## [2.0.0] - 2026-10-01
 
 ### Removed

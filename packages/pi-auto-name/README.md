@@ -64,11 +64,13 @@ Full default configuration:
 ```json
 {
   "enabled": true,
+  "customInstructions": "",
   "initialRenameTrigger": "first-input",
   "language": "en",
   "namingContextDepth": "recent-user-messages",
   "namingModel": "",
   "namingStyle": "natural",
+  "namingCase": "title",
   "replaceExistingName": "always",
   "reRenameEveryNTurns": 0,
   "respectExternalRenames": true,
@@ -88,6 +90,29 @@ Full default configuration:
 
 Every configuration key is optional.
 
+For sentence-style capitalization with the `natural` style:
+
+```json
+{
+  "namingCase": "sentence",
+  "customInstructions": "Mention the affected service and avoid generic labels."
+}
+```
+
+`namingCase` defaults to `"title"`, preserving existing behavior. `"sentence"`
+asks the model to use sentence case while preserving proper nouns, acronyms,
+and language-specific capitalization, for example `Fix the OAuth callback retry`.
+It applies to both names in the `natural` style and has no effect on scripts
+without letter case. It does not change `slug` or `topic-project`.
+
+`customInstructions` appends text to the naming model's system prompt in every
+style. It does not replace the built-in prompt, conversation context, or length
+limits. Keep instructions consistent with the chosen style and the two-line
+`WINDOW:` / `SESSION:` response format. Empty or whitespace-only text adds nothing.
+A project override can use `"customInstructions": ""` to clear global instructions.
+Both settings guide the model; they do not rewrite capitalization after generation.
+Network-free fallback names do not use these model instructions.
+
 ## Configuration Reference
 
 | Key                         | Type      | Default                  | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -98,6 +123,8 @@ Every configuration key is optional.
 | `namingContextDepth`        | `string`  | `"recent-user-messages"` | How much of the conversation to send to LLM in each renaming prompt:<br><ul><li><code>"first-user-message"</code> — only the first user message</li><li><code>"recent-user-messages"</code> — first user message plus the last 3 user messages</li><li><code>"full-conversation"</code> — the whole conversation (users, assistants, tool calls &amp; results), capped to ~60k chars keeping both the opening (core intent) and the latest tail</li></ul> |
 | `namingModel`               | `string`  | `""`                     | `provider/modelId` override for the naming LLM call. Example: `"openrouter/nvidia/nemotron-3-nano-30b-a3b:free"`. Leave empty to use your configured Pi default model and provider.                                                                                                                                                                                                                                                                       |
 | `namingStyle`               | `string`  | `"natural"`              | The naming style used for both names:<br><ul><li><code>"natural"</code> — free-form sentence</li><li><code>"slug"</code> — lowercase kebab-case.</li><li><code>"topic-project"</code> — <code>&lt;topic&gt;｜&lt;project&gt;</code>, project derived from current working directory</li></ul>                                                                                                                                                             |
+| `namingCase`                | `string`  | `"title"`                | `"title"` or `"sentence"`. Capitalization guidance for both `natural` names. Ignored by other styles.                                                                                                                                                                                                                                                                                                                                                     |
+| `customInstructions`        | `string`  | `""`                     | Additional naming instructions appended to the system prompt in every style. See the example above.                                                                                                                                                                                                                                                                                                                                                       |
 | `replaceExistingName`       | `string`  | `"always"`               | When to overwrite an existing Pi session name, tmux window name, herdr pane/tab name, zellij pane/tab name:<br><ul><li><code>"always"</code> — always overwrite</li><li><code>"never"</code> — never overwrite</li></ul>                                                                                                                                                                                                                                  |
 | `reRenameEveryNTurns`       | `integer` | `0`                      | Re-rename every N turns (every N `agent_settled` events). `0` never re-renames.                                                                                                                                                                                                                                                                                                                                                                           |
 | `respectExternalRenames`    | `boolean` | `true`                   | When `true`, disables this extension's renaming after an external rename is detected (e.g. after you manually run `/name`)                                                                                                                                                                                                                                                                                                                                |
