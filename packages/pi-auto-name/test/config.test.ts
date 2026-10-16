@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ConfigSchema, loadConfig, validateConfig, type Config } from "../src/config.js";
 
@@ -19,6 +20,7 @@ vi.mock("@juicesharp/rpiv-config", async (importOriginal) => {
 });
 
 import { loadJsonConfig } from "@juicesharp/rpiv-config";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 const TOP_LEVEL_DEFAULTS: Partial<Config> = {
   enabled: true,
@@ -100,7 +102,7 @@ describe("loadConfig (nested defaults deep-merged)", () => {
 
   it("loads the preferred user-global config from Pi's agent directory", () => {
     vi.mocked(loadJsonConfig)
-      .mockReturnValueOnce({}) // legacy fallback
+      .mockReturnValueOnce({}) // XDG config
       .mockReturnValueOnce({ namingStyle: "slug" }) // preferred user config
       .mockReturnValueOnce({}); // project override
     const cfg = loadConfig("/some/project");
@@ -110,12 +112,35 @@ describe("loadConfig (nested defaults deep-merged)", () => {
       1,
       "/fake/home/.config/pi-auto-name/config.json",
     );
-    expect(loadJsonConfig).toHaveBeenNthCalledWith(2, "/fake/home/.pi/agent/pi-auto-name.json");
-    expect(loadJsonConfig).toHaveBeenNthCalledWith(3, "/some/project/.pi/pi-auto-name.json");
+    expect(loadJsonConfig).toHaveBeenNthCalledWith(
+      2,
+      join("/fake/home/.pi/agent", "pi-auto-name.json"),
+    );
+    expect(loadJsonConfig).toHaveBeenNthCalledWith(
+      3,
+      join("/some/project", ".pi", "pi-auto-name.json"),
+    );
     expect(cfg.namingStyle).toBe("slug");
   });
 
-  it("applies legacy, preferred user, and project precedence per field", () => {
+  it("uses the agent directory returned by Pi rather than a hardcoded home path", () => {
+    const agentDir = join("/custom", "pi-agent");
+    vi.mocked(getAgentDir).mockReturnValueOnce(agentDir);
+    loadConfig("/p");
+    expect(loadJsonConfig).toHaveBeenNthCalledWith(2, join(agentDir, "pi-auto-name.json"));
+  });
+
+  it("keeps XDG settings when the agent and project configs are empty", () => {
+    vi.mocked(loadJsonConfig)
+      .mockReturnValueOnce({ language: "fr", enabled: false })
+      .mockReturnValueOnce({})
+      .mockReturnValueOnce({});
+    const cfg = loadConfig("/p");
+    expect(cfg.language).toBe("fr");
+    expect(cfg.enabled).toBe(false);
+  });
+
+  it("applies XDG, agent, and project precedence per field", () => {
     vi.mocked(loadJsonConfig)
       .mockReturnValueOnce({
         namingStyle: "slug",
@@ -126,8 +151,8 @@ describe("loadConfig (nested defaults deep-merged)", () => {
       .mockReturnValueOnce({ reRenameEveryNTurns: 3 });
     const cfg = loadConfig("/p");
 
-    expect(cfg.namingStyle).toBe("slug"); // legacy fallback
-    expect(cfg.language).toBe("de"); // preferred user config wins over legacy
+    expect(cfg.namingStyle).toBe("slug"); // XDG config
+    expect(cfg.language).toBe("de"); // agent config wins over XDG
     expect(cfg.reRenameEveryNTurns).toBe(3); // project wins over both user sources
   });
 
@@ -137,7 +162,7 @@ describe("loadConfig (nested defaults deep-merged)", () => {
       .mockReturnValueOnce({ surfaces: { renameZellijTab: false } })
       .mockReturnValueOnce({ surfaces: { renamePiSession: false } });
     const cfg = loadConfig("/p");
-    expect(cfg.surfaces.renameTmuxWindow).toBe(false); // legacy fallback
+    expect(cfg.surfaces.renameTmuxWindow).toBe(false); // XDG config
     expect(cfg.surfaces.renameZellijTab).toBe(false); // preferred user config
     expect(cfg.surfaces.renamePiSession).toBe(false); // project override
     expect(cfg.surfaces.renameHerdrPane).toBe(true); // default elsewhere
