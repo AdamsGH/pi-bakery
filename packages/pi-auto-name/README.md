@@ -37,17 +37,9 @@ pi install npm:@normful/pi-auto-name
 
 ## Usage
 
-Naming runs automatically. Run `/rename` without arguments to regenerate names
-from the current conversation using the same configuration, even after the initial
-rename or when periodic re-renaming is off.
+Naming runs automatically. Configure it once, and that's it.
 
-The command respects `enabled`, `replaceExistingName`, `respectExternalRenames`,
-and the configured surfaces. It reports why a rename was skipped or failed.
-Run it when the agent is idle; it will not start a second naming request while
-another is in progress. Manual requests do not increment or reset the automatic
-turn counter. Configuration changes still require `/reload`.
-
-Use Pi's `/name` command to set a literal name. `/rename` does not accept arguments.
+[Manual rename](#manual-rename)
 
 ## How It Works
 
@@ -72,13 +64,13 @@ Full default configuration:
 ```json
 {
   "enabled": true,
-  "customInstructions": "",
   "initialRenameTrigger": "first-input",
   "language": "en",
+  "namingCase": "title",
   "namingContextDepth": "recent-user-messages",
+  "namingInstructions": "",
   "namingModel": "",
   "namingStyle": "natural",
-  "namingCase": "title",
   "replaceExistingName": "always",
   "reRenameEveryNTurns": 0,
   "respectExternalRenames": true,
@@ -98,29 +90,6 @@ Full default configuration:
 
 Every configuration key is optional.
 
-For sentence-style capitalization with the `natural` style:
-
-```json
-{
-  "namingCase": "sentence",
-  "customInstructions": "Mention the affected service and avoid generic labels."
-}
-```
-
-`namingCase` defaults to `"title"`, preserving existing behavior. `"sentence"`
-asks the model to use sentence case while preserving proper nouns, acronyms,
-and language-specific capitalization, for example `Fix the OAuth callback retry`.
-It applies to both names in the `natural` style and has no effect on scripts
-without letter case. It does not change `slug` or `topic-project`.
-
-`customInstructions` appends text to the naming model's system prompt in every
-style. It does not replace the built-in prompt, conversation context, or length
-limits. Keep instructions consistent with the chosen style and the two-line
-`WINDOW:` / `SESSION:` response format. Empty or whitespace-only text adds nothing.
-A project override can use `"customInstructions": ""` to clear global instructions.
-Both settings guide the model; they do not rewrite capitalization after generation.
-Network-free fallback names do not use these model instructions.
-
 ## Configuration Reference
 
 | Key                         | Type      | Default                  | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -128,23 +97,27 @@ Network-free fallback names do not use these model instructions.
 | `enabled`                   | `boolean` | `true`                   | `false` disables this extension entirely.                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `initialRenameTrigger`      | `string`  | `"first-input"`          | When the first rename fires:<br><ul><li><code>"first-input"</code> — after you send first prompt</li><li><code>"first-agent-settled"</code> — after the first LLM run finishes (after the first `agent_settled` event).</li></ul>                                                                                                                                                                                                                         |
 | `language`                  | `string`  | `"en"`                   | One of: `"en"`, `"es"`, `"de"`, `"fr"`, `"it"`, `"nl"`, `"pt"`, `"pt-BR"`, `"pt-PT"`, `"id"`, `"vi"`, `"tr"`, `"pl"`, `"uk"`, `"fa"`, `"ar"`, `"hi"`, `"zh"`, `"zh-CN"`, `"zh-Hans"`, `"zh-Hant"`, `"zh-TW"`, `"zh-HK"`, `"ja"`, `"ko"`, `"th"`                                                                                                                                                                                                           |
+| `namingCase`                | `string`  | `"title"`                | Guides capitalization of both `natural` names: `"title"` or `"sentence"`, e.g. `Fix the OAuth callback retry`. Preserves proper nouns, acronyms, and language-specific capitalization. Ignored by other styles and scripts without letter case.                                                                                                                                                                                                           |
 | `namingContextDepth`        | `string`  | `"recent-user-messages"` | How much of the conversation to send to LLM in each renaming prompt:<br><ul><li><code>"first-user-message"</code> — only the first user message</li><li><code>"recent-user-messages"</code> — first user message plus the last 3 user messages</li><li><code>"full-conversation"</code> — the whole conversation (users, assistants, tool calls &amp; results), capped to ~60k chars keeping both the opening (core intent) and the latest tail</li></ul> |
+| `namingInstructions`        | `string`  | `""`                     | Extra instructions for the naming model in every style, e.g. `Mention the affected service.` Supplements the built-in prompt. Keep the `WINDOW:` / `SESSION:` response format. Empty text in a project override clears global instructions. Does not affect fallback names.                                                                                                                                                                               |
 | `namingModel`               | `string`  | `""`                     | `provider/modelId` override for the naming LLM call. Example: `"openrouter/nvidia/nemotron-3-nano-30b-a3b:free"`. Leave empty to use your configured Pi default model and provider.                                                                                                                                                                                                                                                                       |
 | `namingStyle`               | `string`  | `"natural"`              | The naming style used for both names:<br><ul><li><code>"natural"</code> — free-form sentence</li><li><code>"slug"</code> — lowercase kebab-case.</li><li><code>"topic-project"</code> — <code>&lt;topic&gt;｜&lt;project&gt;</code>, project derived from current working directory</li></ul>                                                                                                                                                             |
-| `namingCase`                | `string`  | `"title"`                | `"title"` or `"sentence"`. Capitalization guidance for both `natural` names. Ignored by other styles.                                                                                                                                                                                                                                                                                                                                                     |
-| `customInstructions`        | `string`  | `""`                     | Additional naming instructions appended to the system prompt in every style. See the example above.                                                                                                                                                                                                                                                                                                                                                       |
 | `replaceExistingName`       | `string`  | `"always"`               | When to overwrite an existing Pi session name, tmux window name, herdr pane/tab name, zellij pane/tab name:<br><ul><li><code>"always"</code> — always overwrite</li><li><code>"never"</code> — never overwrite</li></ul>                                                                                                                                                                                                                                  |
 | `reRenameEveryNTurns`       | `integer` | `0`                      | Re-rename every N turns (every N `agent_settled` events). `0` never re-renames.                                                                                                                                                                                                                                                                                                                                                                           |
 | `respectExternalRenames`    | `boolean` | `true`                   | When `true`, disables this extension's renaming after an external rename is detected (e.g. after you manually run `/name`)                                                                                                                                                                                                                                                                                                                                |
 | `sessionNameMaxLength`      | `integer` | `200`                    | Max character limit for the Pi session name.                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `skipSessionNameDedup`      | `boolean` | `false`                  | `true` skips sending existing Pi session names into the renaming prompt. `false` (default) sends up to 15 existing session names as names to avoid duplicating.                                                                                                                                                                                                                                                                                           |
-| `surfaces.renamePiSession`  | `boolean` | `true`                   | `false` disables renaming of Pi session                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `surfaces.renameHerdrPane`  | `boolean` | `true`                   | `false` disables renaming of the herdr pane Pi is running in                                                                                                                                                                                                                                                                                                                                                                                              |
 | `surfaces.renameHerdrTab`   | `boolean` | `true`                   | `false` disables renaming of the herdr tab this process runs in.                                                                                                                                                                                                                                                                                                                                                                                          |
+| `surfaces.renamePiSession`  | `boolean` | `true`                   | `false` disables renaming of Pi session                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `surfaces.renameTmuxWindow` | `boolean` | `true`                   | `false` disables renaming of the tmux window this process runs in.                                                                                                                                                                                                                                                                                                                                                                                        |
 | `surfaces.renameZellijPane` | `boolean` | `true`                   | `false` disables renaming of the zellij pane this process runs in.                                                                                                                                                                                                                                                                                                                                                                                        |
 | `surfaces.renameZellijTab`  | `boolean` | `true`                   | `false` disables renaming of the zellij tab this process runs in.                                                                                                                                                                                                                                                                                                                                                                                         |
 | `windowNameMaxLength`       | `integer` | `30`                     | Max chars for every terminal/frame window name (herdr pane/tab, tmux window, zellij pane/tab). One of the two length knobs.                                                                                                                                                                                                                                                                                                                               |
+
+## Manual rename
+
+Run `/rename` without arguments to regenerate names from the current conversation using your settings. Use Pi's `/name` command to set a literal name.
 
 ## Debugging
 

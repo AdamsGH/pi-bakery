@@ -43,7 +43,7 @@ function defaultCfg(): Config {
     respectExternalRenames: true,
     namingStyle: "natural",
     namingCase: "title",
-    customInstructions: "",
+    namingInstructions: "",
     namingContextDepth: "recent-user-messages",
     skipSessionNameDedup: false,
     namingModel: "",
@@ -144,7 +144,7 @@ describe("/rename command", () => {
     h.setCfg({
       namingStyle: "slug",
       namingCase: "sentence",
-      customInstructions: "Mention OAuth.",
+      namingInstructions: "Mention OAuth.",
       namingModel: "provider/model",
       language: "de",
       namingContextDepth: "full-conversation",
@@ -159,7 +159,7 @@ describe("/rename command", () => {
     expect(cfg).toMatchObject({
       namingStyle: "slug",
       namingCase: "sentence",
-      customInstructions: "Mention OAuth.",
+      namingInstructions: "Mention OAuth.",
       namingModel: "provider/model",
       language: "de",
       namingContextDepth: "full-conversation",

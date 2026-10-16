@@ -43,7 +43,7 @@ function mkConfig(overrides: Partial<Config> = {}): Config {
   return {
     namingStyle: "natural",
     namingCase: "title",
-    customInstructions: "",
+    namingInstructions: "",
     namingContextDepth: "recent-user-messages",
     namingModel: "",
     language: "en",
@@ -821,7 +821,7 @@ describe("naming case and custom instructions", () => {
       const complete = mkComplete();
       await generateNames(
         mkCtx({}, complete),
-        mkConfig({ namingStyle, customInstructions: "  Mention the affected service.  " }),
+        mkConfig({ namingStyle, namingInstructions: "  Mention the affected service.  " }),
         mkContext(),
         [],
         "/p",
@@ -858,11 +858,11 @@ describe("naming case and custom instructions", () => {
 
   it.each(["", "   ", 42, null])(
     "ignores empty or non-string custom instructions (%s)",
-    async (customInstructions) => {
+    async (namingInstructions) => {
       const complete = mkComplete();
       const result = await generateNames(
         mkCtx({}, complete),
-        mkConfig({ customInstructions: customInstructions as string }),
+        mkConfig({ namingInstructions: namingInstructions as string }),
         mkContext(),
         [],
         "/p",
@@ -882,7 +882,7 @@ describe("naming case and custom instructions", () => {
         const complete = mkComplete();
         await generateNames(
           mkCtx({}, complete),
-          mkConfig({ namingStyle, namingCase, customInstructions: "   " }),
+          mkConfig({ namingStyle, namingCase, namingInstructions: "   " }),
           mkContext(),
           [],
           "/p",

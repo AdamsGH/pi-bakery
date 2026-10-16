@@ -15,6 +15,8 @@ import { collectExistingSessionNames } from "./dedup.js";
 import { applySessionName, logSurfacesEnv, syncSurfaces, windowNameForSync } from "./surfaces.js";
 import { debug, initDebug } from "./debug.js";
 
+type RenameFailureReason = string;
+
 /**
  * Everything a rename run needs from the event context, captured synchronously
  * after the generation guard and before the naming pipeline yields, so the
@@ -109,7 +111,7 @@ export default function (pi: ExtensionAPI): void {
   function prepareRename(
     ctx: ExtensionContext,
     options: RenameOptions | undefined,
-  ): PreparedRename | string {
+  ): PreparedRename | RenameFailureReason {
     // cfg is read synchronously so this preparation remains before the next
     // await in every caller. config(cwd) has already populated the cache.
     const c = cfg as Config;
@@ -198,7 +200,7 @@ export default function (pi: ExtensionAPI): void {
   async function completeRename(
     p: PreparedRename,
     options: { timeoutMs?: number } | undefined,
-  ): Promise<string | undefined> {
+  ): Promise<RenameFailureReason | undefined> {
     const { c, currentName } = p;
 
     // Step 1: collect existing sibling session names (dedup hints). A failure
@@ -285,7 +287,7 @@ export default function (pi: ExtensionAPI): void {
   async function renameOnce(
     ctx: ExtensionContext,
     options?: RenameOptions,
-  ): Promise<string | undefined> {
+  ): Promise<RenameFailureReason | undefined> {
     const p = prepareRename(ctx, options);
     if (typeof p === "string") return p;
     try {

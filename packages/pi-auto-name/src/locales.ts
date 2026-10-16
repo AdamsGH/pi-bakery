@@ -11,8 +11,8 @@ export interface LocaleStrings {
   topicProjectSystemPrompt: string;
   /** Natural style — user-side rules block (prepended to the naming context). */
   naturalRules: string;
-  /** Replacement for {nameCase}; omitted for scripts without letter case. */
-  sentenceCase?: string;
+  /** Replacement for {nameCase}; undefined for scripts without letter case. */
+  sentenceCase: string | undefined;
   /** Full user-prompt templates; labels are baked in, values are {placeholders}. */
   topicProjectPromptTemplate: string; // {language} {windowMaxChars} {sessionMaxChars} {topicBudget} {projectName} {separator} {projectLines} {projectLine} {cwd} {firstUserBlock} {firstAssistantBlock} {conversationBlock}
   namingContextTemplate: string; // {firstUserMessageLabel} {first} {recent}
@@ -107,6 +107,7 @@ Use plain text, no quotes, no markdown, no trailing punctuation, no extra text.`
 };
 
 const ZH: LocaleStrings = {
+  sentenceCase: undefined,
   naturalSystemPrompt:
     "你为 AI 聊天会话创建会话名称。请恰好返回两行。\n" +
     "WINDOW: 用于终端标签栏的简短名称，约 4-12 个字（不超过 {windowMaxChars} 个字符）。\n" +
@@ -174,6 +175,7 @@ SESSION: 不超过 {sessionMaxChars} 个字符、用连字符分隔的名称。
 };
 
 const ZH_HANT: LocaleStrings = {
+  sentenceCase: undefined,
   naturalSystemPrompt:
     "你為 AI 聊天會話建立會話名稱。請恰好回傳兩行。\n" +
     "WINDOW: 用於終端機標籤列的簡短名稱，約 4-12 個字（不超過 {windowMaxChars} 個字元）。\n" +
@@ -241,6 +243,7 @@ SESSION: 不超過 {sessionMaxChars} 個字元、用連字號分隔的名稱。
 };
 
 const JA: LocaleStrings = {
+  sentenceCase: undefined,
   naturalSystemPrompt:
     "あなたはAIチャットセッションにセッション名を付ける係です。正確に2行だけ返してください。\n" +
     "WINDOW: ターミナルのタブバー用の短い名前（約4〜12文字、{windowMaxChars}文字以内）。\n" +
@@ -309,6 +312,7 @@ WINDOWは具体的な対象（ファイル・関数・サービス・サブシ�
 };
 
 const KO: LocaleStrings = {
+  sentenceCase: undefined,
   naturalSystemPrompt:
     "AI 채팅 세션의 이름을 만듭니다. 정확히 두 줄을 반환하세요.\n" +
     "WINDOW: 터미널 탭 바용 짧은 이름(약 4~12자, {windowMaxChars}자 이내).\n" +
@@ -1003,6 +1007,7 @@ SESSION: назва в нижньому регістрі, розділена д�
 };
 
 const FA: LocaleStrings = {
+  sentenceCase: undefined,
   naturalSystemPrompt:
     "شما برای جلسات چت هوش مصنوعی نام جلسه می‌سازید. دقیقاً دو خط برگردانید.\n" +
     "WINDOW: برچسب کوتاه 2 تا 4 کلمه برای نوار تب پایانه (حداکثر {windowMaxChars} کاراکتر).\n" +
@@ -1070,6 +1075,7 @@ WINDOW را به یک موجودیت مشخص (فایل، تابع، سرویس�
 };
 
 const AR: LocaleStrings = {
+  sentenceCase: undefined,
   naturalSystemPrompt:
     "أنت تنشئ أسماء جلسات لمحادثات الذكاء الاصطناعي. أعد سطرين بالضبط.\n" +
     "WINDOW: تسمية قصيرة من 2 إلى 4 كلمات لشريط علامات التبويب في الطرفية (حتى {windowMaxChars} حرفًا).\n" +
@@ -1137,6 +1143,7 @@ SESSION: اسم مفصول بشرطات أقل من {sessionMaxChars} حرفًا
 };
 
 const HI: LocaleStrings = {
+  sentenceCase: undefined,
   naturalSystemPrompt:
     "आप AI चैट सत्रों के लिए सत्र नाम बनाते हैं। ठीक दो पंक्तियाँ लौटाएँ।\n" +
     "WINDOW: टर्मिनल टैब बार के लिए 2 से 4 शब्दों का छोटा लेबल (अधिकतम {windowMaxChars} वर्ण)।\n" +
@@ -1344,6 +1351,7 @@ Gebruik gewone tekst: geen aanhalingstekens, geen markdown, geen leestekens aan 
 };
 
 const TH: LocaleStrings = {
+  sentenceCase: undefined,
   naturalSystemPrompt:
     "คุณสร้างชื่อเซสชันสำหรับเซสชันแชท AI โปรดคืนค่าสองบรรทัดเท่านั้น\n" +
     "WINDOW: ป้ายกำกับสั้นประมาณ 4-12 ตัวอักษรสำหรับแถบแท็บเทอร์มินัล (ไม่เกิน {windowMaxChars} ตัวอักษร)\n" +

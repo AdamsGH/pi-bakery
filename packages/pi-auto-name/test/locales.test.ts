@@ -22,6 +22,7 @@ const REQUIRED_FIELDS: Exclude<keyof LocaleStrings, "sentenceCase">[] = [
 describe("LOCALE_STRINGS registry", () => {
   it("provides sentence-case guidance wherever natural prompts specify letter case", () => {
     for (const [key, table] of Object.entries(LOCALE_STRINGS)) {
+      expect(table, key).toHaveProperty("sentenceCase");
       for (const field of ["naturalSystemPrompt", "naturalRules"] as const) {
         expect(table[field], `${key}.${field}`).not.toContain("Title Case");
         expect(table[field].includes("{nameCase}"), `${key}.${field}`).toBe(

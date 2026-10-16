@@ -33,7 +33,7 @@ export const ConfigSchema = Type.Object({
   namingCase: Type.Union([Type.Literal("title"), Type.Literal("sentence")], {
     default: "title",
   }),
-  customInstructions: Type.String({ default: "" }),
+  namingInstructions: Type.String({ default: "" }),
   namingStyle: Type.Union(
     [Type.Literal("natural"), Type.Literal("slug"), Type.Literal("topic-project")],
     { default: "natural" },

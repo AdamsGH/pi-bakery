@@ -20,7 +20,7 @@ const TOP_LEVEL_DEFAULTS: Partial<Config> = {
   respectExternalRenames: true,
   namingStyle: "natural",
   namingCase: "title",
-  customInstructions: "",
+  namingInstructions: "",
   namingContextDepth: "recent-user-messages",
   skipSessionNameDedup: false,
   namingModel: "",
@@ -41,7 +41,7 @@ describe("ConfigSchema top-level defaults (via rpiv-config validateConfig)", () 
     const cfg = validateConfig(ConfigSchema, {
       namingStyle: "slug",
       namingCase: "sentence",
-      customInstructions: "Mention the affected service.",
+      namingInstructions: "Mention the affected service.",
       language: "zh-CN",
       initialRenameTrigger: "first-agent-settled",
       reRenameEveryNTurns: 3,
@@ -50,7 +50,7 @@ describe("ConfigSchema top-level defaults (via rpiv-config validateConfig)", () 
     });
     expect(cfg.namingStyle).toBe("slug");
     expect(cfg.namingCase).toBe("sentence");
-    expect(cfg.customInstructions).toBe("Mention the affected service.");
+    expect(cfg.namingInstructions).toBe("Mention the affected service.");
     expect(cfg.language).toBe("zh-CN");
     expect(cfg.initialRenameTrigger).toBe("first-agent-settled");
     expect(cfg.reRenameEveryNTurns).toBe(3);
@@ -102,9 +102,9 @@ describe("loadConfig (nested defaults deep-merged)", () => {
         namingStyle: "slug",
         language: "fr",
         namingCase: "sentence",
-        customInstructions: "Global naming preference.",
+        namingInstructions: "Global naming preference.",
       })
-      .mockReturnValueOnce({ language: "de", customInstructions: "" });
+      .mockReturnValueOnce({ language: "de", namingInstructions: "" });
     const cfg = loadConfig("/some/project");
 
     expect(loadJsonConfig).toHaveBeenCalledTimes(2);
@@ -119,7 +119,7 @@ describe("loadConfig (nested defaults deep-merged)", () => {
     expect(cfg.namingStyle).toBe("slug"); // from user base
     expect(cfg.language).toBe("de"); // project wins
     expect(cfg.namingCase).toBe("sentence");
-    expect(cfg.customInstructions).toBe(""); // project can clear global instructions
+    expect(cfg.namingInstructions).toBe(""); // project can clear global instructions
   });
 
   it("deep-merges nested surface objects across user and project", () => {

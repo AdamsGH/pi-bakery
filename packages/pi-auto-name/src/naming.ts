@@ -177,10 +177,10 @@ function systemPromptFor(style: Config["namingStyle"], locale: LocaleStrings, cf
     });
     base = `${directive}\n\n${base}`;
   }
-  const customInstructions =
-    typeof cfg.customInstructions === "string" ? cfg.customInstructions.trim() : "";
-  if (customInstructions) {
-    base += `\n\n${customInstructions}\n\n${locale.responseFormat}`;
+  const namingInstructions =
+    typeof cfg.namingInstructions === "string" ? cfg.namingInstructions.trim() : "";
+  if (namingInstructions) {
+    base += `\n\n${namingInstructions}\n\n${locale.responseFormat}`;
   }
   return base;
 }
